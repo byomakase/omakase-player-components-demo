@@ -1,0 +1,86 @@
+@use "variables";
+
+.toast-container {
+  position: fixed;
+  right: 0;
+  bottom: 0;
+  z-index: 2;
+}
+
+.toast {
+  .toast-body {
+    display: flex;
+    justify-content: space-between;
+
+    .toast-content {
+      display: flex;
+      width: 90%;
+      justify-content: start;
+      align-items: center;
+
+      span {
+        margin-left: 1em;
+      }
+    }
+  }
+
+  position: relative;
+
+  font-size: 17px;
+  font-weight: 500;
+
+  width: 20em;
+
+  border-width: 1px;
+  border-radius: 5px;
+  border-style: solid;
+  padding: 5px;
+
+  color: black;
+
+  margin-bottom: 5px;
+
+  box-shadow: 0 -5px 12px #000;
+}
+
+.toast-success.toast {
+  background-color: variables.$color-toast-background-success;
+  border-color: variables.$color-toast-border-success;
+  color: variables.$color-toast-text-success;
+
+  .icon {
+    svg {
+      path {
+        fill: variables.$color-toast-text-success;
+      }
+    }
+  }
+}
+
+.toast-warning.toast {
+  background-color: variables.$color-toast-background-warning;
+  border-color: variables.$color-toast-border-warning;
+  color: variables.$color-toast-text-warning;
+
+  .icon {
+    svg {
+      path {
+        fill: variables.$color-toast-text-warning;
+      }
+    }
+  }
+}
+
+.toast-error.toast {
+  background-color: variables.$color-toast-background-error;
+  border-color: variables.$color-toast-border-error;
+  color: variables.$color-toast-text-error;
+
+  .icon {
+    svg {
+      path {
+        fill: variables.$color-toast-text-error;
+      }
+    }
+  }
+}

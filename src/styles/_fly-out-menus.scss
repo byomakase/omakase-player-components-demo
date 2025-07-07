@@ -1,0 +1,27 @@
+@use "variables";
+
+.fly-out-menu {
+  width: 70px;
+  display: flex;
+  flex-direction: column;
+  position: absolute;
+  right: 0px;
+  top: 0px;
+
+  background-color: variables.$color-header-background;
+
+  div {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    width: 70px;
+    height: 70px;
+    border-bottom: 1px solid variables.$color-main-background;
+    cursor: pointer;
+  }
+
+  div.disabled {
+    opacity: 0.5;
+    cursor: default;
+  }
+}

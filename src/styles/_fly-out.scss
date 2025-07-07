@@ -1,0 +1,404 @@
+@use "variables";
+
+.base-fly-out {
+  width: 600px !important;
+  background-color: variables.$color-fly-out-background !important;
+
+  .header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+
+    font-family: variables.$font-family-oswald;
+    font-weight: 700;
+    font-size: 36px;
+    line-height: 28px;
+    letter-spacing: 0%;
+
+    color: variables.$color-fly-out-header-fill;
+    background-color: variables.$color-fly-out-background;
+
+    padding: 2em 1em 1em 1em;
+
+    i {
+      cursor: pointer;
+    }
+  }
+
+  .body {
+    padding: 2em 2em 0em 2em;
+    font-family: variables.$font-family-roboto;
+    font-weight: 400;
+    font-size: 15px;
+    line-height: 28px;
+    letter-spacing: 0%;
+
+    .input-wrapper {
+      margin: 0em 0em 1em 0em;
+      display: flex;
+      align-items: center;
+
+      .input-label {
+        font-size: 18px;
+      }
+
+      app-checkbox {
+        margin-right: 0.75em;
+        height: 30px;
+
+        svg {
+          width: 22px;
+          height: 22px;
+        }
+      }
+    }
+
+    .input-wrapper-no-margin {
+      margin-bottom: 0;
+    }
+
+    span.error-message {
+      color: red;
+      margin-left: 5px;
+    }
+
+    .button-wrapper {
+      display: inline-flex;
+      justify-content: space-between;
+      align-items: center;
+      button {
+        all: unset;
+        cursor: pointer;
+
+        display: flex;
+        align-items: center;
+        justify-content: center;
+
+        font-family: Oswald;
+        font-weight: 400;
+        font-size: 25px;
+        line-height: 28px;
+        color: variables.$color-text-accent;
+        background-color: variables.$color-header-background;
+
+        margin-right: 20px;
+        margin-top: 1em;
+
+        padding: 10px;
+      }
+
+      button.cancel-button {
+        background-color: variables.$color-button-alt;
+        border-color: variables.$color-button-border-alt;
+        color: variables.$color-button-text-alt;
+      }
+
+      button:hover {
+        filter: brightness(85%);
+      }
+
+      button:disabled {
+        opacity: 0.5;
+        cursor: default;
+      }
+    }
+  }
+
+  .main-media-body {
+    .input-tooltip {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 1em;
+      input {
+        flex-grow: 1;
+        margin-right: 10px;
+        margin-bottom: 0;
+      }
+    }
+
+    input {
+      width: 460px;
+      height: 50px;
+      // margin-bottom: 1em;
+      padding: 0 1em 0 1em;
+
+      border: none;
+      border-radius: none;
+
+      font-family: variables.$font-family-roboto;
+      font-weight: 400;
+      font-size: 15px;
+      line-height: 28px;
+    }
+
+    input[type="text"].short {
+      width: 300px;
+    }
+
+    select {
+      width: 300px;
+      border: none;
+      border-radius: none;
+      margin-right: 10px;
+      font-family: variables.$font-family-roboto;
+      font-weight: 400;
+      font-size: 15px;
+      line-height: 28px;
+      height: 50px;
+
+      padding: 2px 1em 2px 1em;
+    }
+
+    option[value=""][disabled] {
+      display: none;
+    }
+
+    option[value="0: null"][disabled] {
+      display: none;
+    }
+
+    select:has(option:checked:disabled) {
+      color: gray;
+    }
+
+    input[type="checkbox"] {
+      margin-right: 10px;
+      margin-bottom: 0;
+      width: 20px;
+      height: 20px;
+    }
+  }
+
+  .add-sidecar-body {
+    .sidecar-container {
+      max-height: 45vh;
+      overflow-y: auto;
+      .sidecar-display {
+        .container {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          max-width: 100%;
+
+          border-bottom: 1px solid variables.$color-sidecar-display-border;
+          padding-bottom: 1em;
+          padding-top: 1em;
+          margin-bottom: 2em;
+        }
+
+        .label {
+          font-family: variables.$font-family-oswald;
+          font-weight: 400;
+          font-size: 18px;
+          line-height: 28px;
+          width: 400px;
+
+          color: variables.$color-text-accent;
+
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
+        }
+
+        .url {
+          font-family: variables.$font-family-roboto;
+          font-weight: 400;
+          font-size: 15px;
+          line-height: 28px;
+        }
+
+        i {
+          cursor: pointer;
+        }
+      }
+    }
+
+    .add-sidecar-dialogue {
+      margin: auto;
+      margin-top: 2em;
+      width: 520px;
+      padding: 2em;
+      display: flex;
+      flex-direction: column;
+
+      background-color: variables.$color-main-background;
+
+      .input-tooltip {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 1em;
+        input {
+          flex-grow: 1;
+          margin-right: 10px;
+          margin-bottom: 0;
+        }
+      }
+
+      input {
+        width: 460px;
+        height: 50px;
+        margin: auto;
+        margin-bottom: 1em;
+        padding: 0 1em 0 1em;
+
+        border: none;
+        border-radius: none;
+
+        font-family: variables.$font-family-roboto;
+        font-weight: 400;
+        font-size: 15px;
+        line-height: 28px;
+      }
+
+      .button-wrapper {
+        width: 100%;
+        display: flex;
+        justify-content: end;
+        align-items: center;
+
+        button {
+          width: 76px;
+          flex-grow: 0;
+        }
+      }
+    }
+  }
+
+  .add-marker-track-body {
+    .marker-track-display {
+      .container {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        max-width: 100%;
+
+        border-bottom: 1px solid variables.$color-sidecar-display-border;
+        padding-bottom: 1em;
+        padding-top: 1em;
+        margin-bottom: 2em;
+      }
+
+      .lower-container {
+        display: flex;
+        align-items: center;
+        .color-display {
+          width: 18px;
+          height: 18px;
+          margin-right: 10px;
+          border: 1px solid black;
+        }
+
+        .url {
+          font-family: variables.$font-family-roboto;
+          font-weight: 400;
+          font-size: 15px;
+          line-height: 28px;
+        }
+      }
+
+      .label {
+        font-family: variables.$font-family-oswald;
+        font-weight: 400;
+        font-size: 18px;
+        line-height: 28px;
+        width: 400px;
+
+        color: variables.$color-text-accent;
+
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+
+      i {
+        cursor: pointer;
+      }
+    }
+
+    .add-marker-track-dialogue {
+      margin: auto;
+      margin-top: 2em;
+      width: 520px;
+      padding: 2em;
+      display: flex;
+      flex-direction: column;
+
+      background-color: variables.$color-main-background;
+
+      .input-wrapper {
+        margin: 0em 0em 1em 0em;
+        display: flex;
+        align-items: center;
+      }
+
+      .input-wrapper-no-margin {
+        margin-bottom: 0;
+      }
+
+      .input-tooltip {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 1em;
+        input {
+          flex-grow: 1;
+          margin-right: 10px;
+          margin-bottom: 0;
+        }
+      }
+
+      input {
+        width: 460px;
+        height: 50px;
+        margin: auto;
+        margin-bottom: 1em;
+        padding: 0 1em 0 1em;
+
+        border: none;
+        border-radius: none;
+
+        font-family: variables.$font-family-roboto;
+        font-weight: 400;
+        font-size: 15px;
+        line-height: 28px;
+      }
+
+      input[type="checkbox"] {
+        margin: unset;
+        margin-right: 10px;
+        margin-bottom: 0;
+        width: 20px;
+        height: 20px;
+      }
+
+      .color-picker-wrapper {
+        position: relative;
+        app-color-picker {
+          position: absolute;
+          top: 5px;
+        }
+      }
+
+      .color-display {
+        width: 22px;
+        height: 22px;
+        margin-right: 10px;
+        border: 1px solid black;
+      }
+
+      .button-wrapper {
+        width: 100%;
+        display: flex;
+        justify-content: end;
+        align-items: center;
+
+        button {
+          width: 76px;
+          flex-grow: 0;
+        }
+      }
+    }
+  }
+}
