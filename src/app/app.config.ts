@@ -19,6 +19,7 @@ import {provideRouter} from '@angular/router';
 
 import {routes} from './app.routes';
 import {windowProvider, WindowToken} from './common/browser/window.provider';
+import {provideHttpClient} from '@angular/common/http';
 
 export const appConfig: ApplicationConfig = {
   providers: [
@@ -28,5 +29,6 @@ export const appConfig: ApplicationConfig = {
       provide: WindowToken,
       useFactory: windowProvider,
     },
+    provideHttpClient(),
   ],
 };

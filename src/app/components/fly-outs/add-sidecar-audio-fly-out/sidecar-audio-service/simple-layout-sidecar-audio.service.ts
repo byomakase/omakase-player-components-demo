@@ -80,7 +80,14 @@ export class SimpleLayoutSidecarAudioService {
     return [...this.loadedSidecarAudios(), ...this._pendingSidecarAudios()];
   });
 
-  public addSidecarAudio(sidecarAudio: SidecarAudio) {
+  /**
+   * Loads and activates a sidecar audio. Already active side car audios will deactivate.
+   * If label is not present in the sidecar, filename from url will be used in omakase player internally.
+   *
+   * @param {SidecarAudio} sidecarAudio
+   */
+  public addSidecarAudio(sidecarAudio: SidecarAudio, showSuccessToast: boolean = true) {
+    const result$ = new Subject<boolean>();
     this._pendingSidecarAudios.update((prev) => [...prev, sidecarAudio]);
     let label;
     if (sidecarAudio.label === '') {
@@ -103,15 +110,29 @@ export class SimpleLayoutSidecarAudioService {
             this.noUserLabelSidecarAudioIds.update((prev) => [...prev, audioTrack.id]);
           }
           sidecarAudio.id = audioTrack.id;
-          this.toastService.show({message: 'Sidecar successfully loaded', type: 'success', duration: 5000});
+          if (showSuccessToast) {
+            this.toastService.show({message: 'Sidecar successfully loaded', type: 'success', duration: 5000});
+          }
+
+          result$.next(true);
+          result$.complete();
         },
         error: () => {
           this.removeSidecarAudio(sidecarAudio);
           this.toastService.show({message: 'Sidecar load failed', type: 'error', duration: 5000});
+          result$.next(false);
+          result$.complete();
         },
       });
+
+    return result$;
   }
 
+  /**
+   * Deletes the sidecar audio from OPCD session
+   *
+   * @param {SidecarAudio} sidecarAudio
+   */
   public removeSidecarAudio(sidecarAudio: SidecarAudio) {
     if (sidecarAudio.id) {
       this.playerService.omakasePlayer!.audio.removeSidecarAudioTracks([sidecarAudio.id]);
@@ -131,6 +152,13 @@ export class SimpleLayoutSidecarAudioService {
     this._pendingSidecarAudios.update((prev) => prev.filter((sidecar) => sidecar !== sidecarAudio));
   }
 
+  /**
+   * Reloads sidecar audios. This method is usually called after the player has been destroyed, the arguments should
+   * capture the player state before destruction
+   *
+   * @param {SidecarAudio[]} sidecarAudios - Sidecar audios
+   * @param {OmpAudioTrack[]} sidecarAudioTracks - Sidecar tracks registered with Omakase player
+   */
   public reloadSidecarAudios(sidecarAudios: SidecarAudio[]) {
     sidecarAudios
       .filter((sidecarAudio) => sidecarAudio.id)
@@ -139,19 +167,37 @@ export class SimpleLayoutSidecarAudioService {
       });
   }
 
+  /**
+   * Removes all sidecar audios from OPCD session
+   */
   public removeAllSidecarAudios() {
     this.playerService.omakasePlayer!.audio.removeAllSidecarAudioTracks();
   }
 
-  public activateSidecarAudio(sidecarAudio: SidecarAudio, muteOthers: boolean = true) {
+  /**
+   * Activates a sidecar audio
+   *
+   * @param {SidecarAudio} sidecarAudio - sidecar audio to activate
+   * @param {boolean} deactivateOthers - should other sidecars be deactivated
+   */
+  public activateSidecarAudio(sidecarAudio: SidecarAudio, deactivateOthers: boolean = true) {
     if (sidecarAudio.id) {
-      this.playerService.omakasePlayer!.audio.activateSidecarAudioTracks([sidecarAudio.id], muteOthers);
+      this.playerService.omakasePlayer!.audio.activateSidecarAudioTracks([sidecarAudio.id], deactivateOthers);
     } else {
       console.error('Sidecar audio is not loaded');
     }
   }
 
+  /**
+   * Deactivates all sidecar audios
+   */
   public deactivateAllSidecarAudios() {
     this.playerService.omakasePlayer!.audio.deactivateSidecarAudioTracks(undefined);
+  }
+
+  public reset() {
+    this.loadedSidecarAudios.set([]);
+    this._pendingSidecarAudios.set([]);
+    this.noUserLabelSidecarAudioIds.set([]);
   }
 }

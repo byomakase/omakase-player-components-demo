@@ -17,6 +17,10 @@
 import {Injectable} from '@angular/core';
 import {ColorResolver} from '../util/color-util';
 
+/**
+ * Service used to get a color resolver with a custom ID. This allows for color resolution heuristic to
+ * work throughout multiple components using the same custom ID.
+ */
 @Injectable({
   providedIn: 'root',
 })

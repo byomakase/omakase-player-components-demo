@@ -17,6 +17,10 @@
 import {Component, input, output} from '@angular/core';
 import {IconDirective} from '../../icon/icon.directive';
 
+/**
+ * Reusable checkbox component, by using clicked output you can track clicks.
+ * Checked state is stored in the parent component.
+ */
 @Component({
   selector: 'app-checkbox',
   template: `

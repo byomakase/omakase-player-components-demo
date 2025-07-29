@@ -19,9 +19,9 @@ import {FormControl, FormGroup, ReactiveFormsModule} from '@angular/forms';
 import {FlyOutService} from '../fly-out.service';
 import {IconDirective} from '../../../common/icon/icon.directive';
 import {allowedNameValidator} from '../../../common/validators/allowed-name-validator';
-import {SidecarDisplay} from '../add-sidecar-audio-fly-out/sidecar-display.component';
 import {SidecarTextService} from './text-sidecar.service';
 import {NgbTooltip} from '@ng-bootstrap/ng-bootstrap';
+import {SidecarDisplay} from '../common/sidecar-display.component';
 
 const urlRegex = /[-a-zA-Z0-9@:%._\+~#=]{1,256}\.[a-zA-Z0-9()]{1,6}\b([-a-zA-Z0-9()@:%_\+.~#?&//=]*)/;
 

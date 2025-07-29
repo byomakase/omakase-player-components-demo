@@ -86,7 +86,7 @@ export class AudioLayoutComponent implements OnInit, OnDestroy, AfterViewInit {
 
   public initialVuMeterIndex = signal<number>(0);
   public lastVuMeterIndex = computed<number>(() => {
-    return this.initialVuMeterIndex() + this.maxVuMeters() - 1;
+    return Math.max(Math.min(this.initialVuMeterIndex() + this.maxVuMeters() - 1, this.peakProcessors().length - 1), this.initialVuMeterIndex());
   });
 
   public canIncrementVuMeterIndex = computed(() => this.initialVuMeterIndex() + this.maxVuMeters() < this.peakProcessors().length);
@@ -104,12 +104,15 @@ export class AudioLayoutComponent implements OnInit, OnDestroy, AfterViewInit {
       const maxVuMeters = Math.max(Math.floor(soundBoardWidth / 150) - 1, 0);
       if (maxVuMeters !== this.maxVuMeters()) {
         this.maxVuMeters.set(maxVuMeters);
-
         if (maxVuMeters >= this.peakProcessors().length) {
           this.initialVuMeterIndex.set(0);
         } else if (this.lastVuMeterIndex() === this.peakProcessors().length - 1) {
           this.initialVuMeterIndex.set(Math.max(0, this.lastVuMeterIndex() - maxVuMeters));
         }
+      }
+
+      if (this.peakProcessors().length && this.lastVuMeterIndex() - this.initialVuMeterIndex() < this.maxVuMeters() - 1) {
+        this.initialVuMeterIndex.set(Math.max(0, this.lastVuMeterIndex() - maxVuMeters + 1));
       }
     });
   }
@@ -169,8 +172,6 @@ export class AudioLayoutComponent implements OnInit, OnDestroy, AfterViewInit {
 
               this.peakProcessors.update((prev) => [peakProcessor, ...prev.filter((pp) => pp.type !== 'main')]);
 
-              console.log(this._audioRouterVisualization, this._audioRouterVisualization?.updateMainTrack);
-
               if (!this._audioRouterVisualization) {
                 this.initializeAudioRouter();
               } else {
@@ -207,6 +208,9 @@ export class AudioLayoutComponent implements OnInit, OnDestroy, AfterViewInit {
     });
   }
 
+  /**
+   * Initializes audio router
+   */
   public initializeAudioRouter() {
     const outputNumber = this.playerService.omakasePlayer!.audio.getAudioContext().destination.maxChannelCount >= 6 ? 6 : 2;
     const sidecarTracks = this.playerService.omakasePlayer!.audio.getActiveSidecarAudioTracks().map((track) => {

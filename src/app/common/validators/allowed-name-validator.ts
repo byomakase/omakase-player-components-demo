@@ -16,6 +16,12 @@
 
 import {AbstractControl, ValidationErrors, ValidatorFn} from '@angular/forms';
 
+/**
+ * Returns a form validation function that allows values matching provided regex
+ *
+ * @param {RegExp} nameRe - Regex representing a valid name
+ * @returns {ValidationErrors | null}
+ */
 export function allowedNameValidator(nameRe: RegExp): ValidatorFn {
   return (control: AbstractControl): ValidationErrors | null => {
     const forbidden = !nameRe.test(control.value);

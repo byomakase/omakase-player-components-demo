@@ -19,8 +19,10 @@ import {PlayerService} from '../../player/player.service';
 import {ToastService} from '../../../common/toast/toast.service';
 import {SubtitlesVttTrack} from '@byomakase/omakase-player';
 import {StringUtil} from '../../../common/util/string-util';
+import {Subject} from 'rxjs';
 
 export type SidecarText = Partial<SubtitlesVttTrack> & {src: string};
+export type LoadedSidecarText = SidecarText & {id: string};
 
 @Injectable({
   providedIn: 'root',
@@ -38,15 +40,34 @@ export class SidecarTextService {
     });
   }
 
-  public loadedSidecarTexts = signal<SidecarText[]>([]);
+  /**
+   * Sidecar texts that have been successfully loaded into Omakase player
+   */
+  public loadedSidecarTexts = signal<LoadedSidecarText[]>([]);
+  /**
+   * Sidcar texts that are being loaded into Omakase player
+   */
   private _pendingSidecarTexts = signal<SidecarText[]>([]);
-  public noUserLabelSidecarTextIds = signal<string[]>([]); // sidecar audio ids for which the user did not provide labels
 
+  /**
+   * sidecar text ids for which the user did not provide label
+   */
+  public noUserLabelSidecarTextIds = signal<string[]>([]);
+
+  /**
+   * All sidecar texts in the OPCD session
+   */
   public sidecarTexts = computed(() => {
     return [...this.loadedSidecarTexts(), ...this._pendingSidecarTexts()];
   });
 
-  public addSidecarText(sidecarText: SidecarText) {
+  /**
+   * Registers a sidecar text with OPCD session
+   *
+   * @param {SidecarText} sidecarText
+   */
+  public addSidecarText(sidecarText: SidecarText, showSuccessToast: boolean = true) {
+    const result$ = new Subject<boolean>();
     this._pendingSidecarTexts.update((prev) => [...prev, sidecarText]);
 
     let label;
@@ -69,18 +90,29 @@ export class SidecarTextService {
         next: (track) => {
           if (track) {
             this.playerService.omakasePlayer!.subtitles.showTrack(track.id);
+
+            sidecarText.id = track.id;
+
             this._pendingSidecarTexts.update((prev) => prev.filter((st) => st !== sidecarText));
-            this.loadedSidecarTexts.update((prev) => [...prev, sidecarText]);
+            this.loadedSidecarTexts.update((prev) => [...prev, sidecarText as LoadedSidecarText]);
 
             if (sidecarText.label === '') {
               this.noUserLabelSidecarTextIds.update((prev) => [...prev, track.id]);
             }
 
             sidecarText.id = track.id;
-            this.createSuccessToast();
+            if (showSuccessToast) {
+              this.createSuccessToast();
+            }
+
+            result$.next(true);
+            result$.complete();
           } else {
             this.removeSidecarText(sidecarText);
             this.createErrorToast();
+
+            result$.next(false);
+            result$.complete();
           }
         },
         error: () => {
@@ -88,8 +120,16 @@ export class SidecarTextService {
           this.createErrorToast();
         },
       });
+
+    return result$;
   }
 
+  /**
+   * Reloads all sidecar texts. Since this method is usually called after Omakase player is recrated the argument
+   * should capture the player state before recreation
+   *
+   * @param {SidecarText[]} sidecarTexts
+   */
   public reloadAllSidecarTexts(sidecarTexts: SidecarText[]) {
     sidecarTexts
       .filter((sidecarText) => sidecarText.id)
@@ -120,6 +160,11 @@ export class SidecarTextService {
       });
   }
 
+  /**
+   * Removes the sidecar text from OPCD session
+   *
+   * @param {SidecarText} sidecarText
+   */
   public removeSidecarText(sidecarText: SidecarText) {
     if (sidecarText.id) {
       this.playerService.omakasePlayer!.subtitles.removeTrack(sidecarText.id);
@@ -134,6 +179,9 @@ export class SidecarTextService {
     this._pendingSidecarTexts.update((prev) => prev.filter((sidecar) => sidecar !== sidecarText));
   }
 
+  /**
+   * Remove all sidecar texts from OPCD session
+   */
   public removeAllSidecarTexts() {
     this.loadedSidecarTexts().forEach((track) => this.playerService.omakasePlayer!.subtitles.removeTrack(track.id!));
     this.loadedSidecarTexts.set([]);

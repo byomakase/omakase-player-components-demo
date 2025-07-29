@@ -36,13 +36,21 @@ export class ColorUtil {
   }
 }
 
+/**
+ * Class implementing basic color usage heuristic.
+ */
 export class ColorResolver {
   private _counters: number[];
   constructor(private colors: string[]) {
     this._counters = colors.map(() => 0);
   }
 
-  getColor(): string {
+  /**
+   * Returns a new color picked by heuristic. Note that it does not update usage count.
+   *
+   * @returns {string} = color
+   */
+  getColor(incrementUsage: boolean = false): string {
     let maxUsageCount = Math.max(...this._counters);
     let colorIndex;
     for (let usageCount = 0; usageCount <= maxUsageCount; usageCount++) {
@@ -52,9 +60,21 @@ export class ColorResolver {
         break;
       }
     }
-    return this.colors.at(colorIndex!)!;
+    const color = this.colors.at(colorIndex!)!;
+
+    if (incrementUsage) {
+      this.incrementColorUsage(color);
+    }
+
+    return color;
   }
 
+  /**
+   * Updates internal usage count for a specific color. Without calling this method, `getColor` will always
+   * return the same color.
+   *
+   * @param {string} color
+   */
   incrementColorUsage(color: string) {
     const index = this.colors.findIndex((c) => c === color);
     if (index === -1) {
@@ -62,5 +82,15 @@ export class ColorResolver {
     }
 
     this._counters[index]++;
+  }
+
+  getColorByIndex(index: number, incrementUsage: boolean = false) {
+    const color = this.colors.at(index % this.colors.length)!;
+
+    if (incrementUsage) {
+      this.incrementColorUsage(color);
+    }
+
+    return color;
   }
 }

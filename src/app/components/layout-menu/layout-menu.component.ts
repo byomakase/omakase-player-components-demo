@@ -17,8 +17,9 @@
 import {Component, inject, signal} from '@angular/core';
 import {IconDirective} from '../../common/icon/icon.directive';
 import {NgbDropdownModule} from '@ng-bootstrap/ng-bootstrap';
-import {Layout, LayoutService} from './layout.service';
+import {LayoutService} from './layout.service';
 import {SessionService} from '../../common/session/session.service';
+import {Layout} from '../../model/session.model';
 @Component({
   selector: 'app-layout-menu',
   imports: [IconDirective, NgbDropdownModule],
@@ -41,8 +42,10 @@ export class LayoutMenu {
   public layouts = signal<Layout[]>([]);
   public layoutLabels: Record<Layout, string> = {
     'simple': 'Simple Layout',
-    'audio-mode': 'Audio Layout',
-    'marker-mode': 'Marker Layout',
+    'audio': 'Audio Layout',
+    'marker': 'Marker Layout',
+    'timeline': 'Timeline Layout',
+    'stamp': 'Stamp Layout',
   };
 
   constructor() {

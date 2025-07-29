@@ -29,6 +29,7 @@ import {filter, take} from 'rxjs';
 import {LayoutService} from '../../layout-menu/layout.service';
 import {SidecarAudioService} from '../add-sidecar-audio-fly-out/sidecar-audio-service/sidecar-audio.service';
 import {CheckboxComponent} from '../../../common/controls/checkbox/checkbox.component';
+import {MarkerTrackService} from '../add-markers-fly-out/marker-track.service';
 
 const nonFractionFrameRates = ['24', '25', '50', '60', '23.98'];
 const urlRegex = /[-a-zA-Z0-9@:%._\+~#=]{1,256}\.[a-zA-Z0-9()]{1,6}\b([-a-zA-Z0-9()@:%_\+.~#?&//=]*)/;
@@ -79,7 +80,14 @@ const urlRegex = /[-a-zA-Z0-9@:%._\+~#=]{1,256}\.[a-zA-Z0-9()]{1,6}\b([-a-zA-Z0-
           @if (form.controls.ffom.hasError('forbiddenName')) { <span class="error-message">Invalid timecode format</span> }
         </div>
 
-        @if(sidecarAudioService.sidecarAudios().length || sidecarTextService.sidecarTexts().length) {
+        <div class="input-wrapper">
+          <div class="input-tooltip">
+            <input formControlName="thumbnailTrack" type="text" placeholder="Thumbnails URL" />
+            <i appIcon="question" ngbTooltip="Specify the URL of a VTT" placement="top"></i>
+          </div>
+        </div>
+
+        @if(sidecarAudioService.sidecarAudios().length || sidecarTextService.sidecarTexts().length || markerTrackService.markerTracks().length) {
         <div class="input-wrapper input-wrapper-no-margin">
           <input hidden formControlName="removeAllSidecars" type="checkbox" />
           <app-checkbox [checked]="form.controls.removeAllSidecars.value ?? undefined" (clicked)="toggleRemoveAllSidecars()" />
@@ -103,6 +111,7 @@ export class AddMainMediaFlyOut implements OnInit {
     dropFrame: new FormControl<boolean | null>(null),
     removeAllSidecars: new FormControl<boolean>(true),
     ffom: new FormControl<string>('', [timecodeValidator(undefined, false)]),
+    thumbnailTrack: new FormControl<string>('', [allowedNameValidator(urlRegex)]),
   });
 
   isLoadDisabled = signal(true);
@@ -113,6 +122,7 @@ export class AddMainMediaFlyOut implements OnInit {
   private layoutService = inject(LayoutService);
   public sidecarAudioService = inject(SidecarAudioService);
   public sidecarTextService = inject(SidecarTextService);
+  public markerTrackService = inject(MarkerTrackService);
 
   public frameRates = ['24', '25', '50', '60', '23.98', '29.97', '59.94'];
   public dropFrameOptions = [
@@ -165,6 +175,9 @@ export class AddMainMediaFlyOut implements OnInit {
     this.form.controls.removeAllSidecars.setValue(!this.form.controls.removeAllSidecars.value);
   }
 
+  /**
+   * Loads a new main media into OPCD session based on form value
+   */
   load() {
     const url = this.form.controls.url.value!;
     const frameRate = Number.parseFloat(this.form.controls.frameRate.value!);
@@ -190,33 +203,53 @@ export class AddMainMediaFlyOut implements OnInit {
       this.playerService.create(config);
     }
 
-    this.playerService.omakasePlayer!.loadVideo(url, videoLoadOptions).subscribe({
-      next: () => {
-        this.toastService.show({message: 'Media successfully loaded', type: 'success', duration: 5000});
-        this.playerService.omakasePlayer!.video.unmute();
-
-        if (this.form.controls.removeAllSidecars.value === false) {
-          this.sidecarAudioService.reloadSidecarAudios(sidecarAudios, sidecarAudioTracks);
-
-          this.playerService
-            .omakasePlayer!.subtitles.onSubtitlesLoaded$.pipe(
-              filter((p) => !!p),
-              take(1)
-            )
-            .subscribe((event) => {
-              this.sidecarTextService.reloadAllSidecarTexts(sidecarTexts);
-            });
-        } else {
-          this.sidecarAudioService.removeAllSidecarAudios();
-          this.sidecarTextService.removeAllSidecarTexts();
+    this.playerService.onCreated$
+      .pipe(
+        filter((p) => !!p),
+        take(1)
+      )
+      .subscribe((player) => {
+        if (this.form.controls.removeAllSidecars.value === true) {
+          // important to do beforehand since the markers are not reloaded and are not implicitly deleted on video reload
+          this.markerTrackService.removeAllMarkerTracks();
         }
-      },
-      error: () => this.toastService.show({message: 'Media load failed', type: 'error', duration: 5000}),
-    });
+        player.loadVideo(url, videoLoadOptions).subscribe({
+          next: () => {
+            this.toastService.show({message: 'Media successfully loaded', type: 'success', duration: 5000});
+            player.video.unmute();
+
+            if (this.form.value.thumbnailTrack && this.form.value.thumbnailTrack !== '') {
+              this.playerService.setThumbnailTrack(this.form.value.thumbnailTrack);
+            } else {
+              this.playerService.thumbnailTrackUrl.set(undefined);
+            }
+
+            if (this.form.controls.removeAllSidecars.value === false) {
+              this.sidecarAudioService.reloadSidecarAudios(sidecarAudios, sidecarAudioTracks);
+
+              this.playerService
+                .omakasePlayer!.subtitles.onSubtitlesLoaded$.pipe(
+                  filter((p) => !!p),
+                  take(1)
+                )
+                .subscribe((event) => {
+                  this.sidecarTextService.reloadAllSidecarTexts(sidecarTexts);
+                });
+            } else {
+              this.sidecarAudioService.removeAllSidecarAudios();
+              this.sidecarTextService.removeAllSidecarTexts();
+            }
+          },
+          error: () => this.toastService.show({message: 'Media load failed', type: 'error', duration: 5000}),
+        });
+      });
 
     this.close();
   }
 
+  /**
+   * Displays initial timecode for first frame of media based on drop frame
+   */
   displayInitialTimecode() {
     if (this.form.controls.ffom.value === '') {
       if (this.form.controls.dropFrame.value) {
@@ -227,6 +260,11 @@ export class AddMainMediaFlyOut implements OnInit {
     }
   }
 
+  /**
+   * Reformats form's ffom based on drop frame timing
+   *
+   * @param {boolean} isDropFrame - is reformated timecode drop frame
+   */
   reformatTimecode(isDropFrame: boolean) {
     const value = this.form.controls.ffom.value!;
     if (isDropFrame && this.form.controls.ffom.valid) {
@@ -236,10 +274,14 @@ export class AddMainMediaFlyOut implements OnInit {
     }
   }
 
+  /**
+   * Checks if the load is allowed based on form
+   */
   private resolveIsLoadDisabled() {
     const isUrlInvalid = this.form.controls.url.invalid || this.form.controls.url.value === '';
     const isFfomInvalid = this.form.controls.ffom.invalid;
-    this.isLoadDisabled.set(isUrlInvalid || isFfomInvalid);
+    const isThumbnailTrackInvalid = this.form.controls.thumbnailTrack.invalid && this.form.controls.thumbnailTrack.value !== '';
+    this.isLoadDisabled.set(isUrlInvalid || isFfomInvalid || isThumbnailTrackInvalid);
   }
 
   @HostListener('document:keydown.enter', ['$event'])

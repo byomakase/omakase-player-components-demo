@@ -18,6 +18,7 @@ import {Component, HostBinding, HostListener, inject, OnInit} from '@angular/cor
 import {PlayerService} from './player.service';
 import {OmakasePlayerUtil} from '../../common/util/omakase-player-util';
 import {WindowService} from '../../common/browser/window.service';
+import {LayoutService} from '../layout-menu/layout.service';
 @Component({
   selector: 'app-player',
   imports: [],
@@ -27,6 +28,7 @@ import {WindowService} from '../../common/browser/window.service';
 export class PlayerComponent implements OnInit {
   protected playerService = inject(PlayerService);
   private windowService = inject(WindowService);
+  private layoutService = inject(LayoutService);
 
   constructor() {}
 
@@ -36,9 +38,21 @@ export class PlayerComponent implements OnInit {
 
       if (player) {
         document.querySelector('media-controller')?.setAttribute('nohotkeys', ''); // disable media chrome hot keys
-        OmakasePlayerUtil.getKeyboardShortcutsHelpMenuGroup(this.windowService.platform).forEach((group) => player.video.appendHelpMenuGroup(group));
+        if (this.resolveHelpMenuSupport()) {
+          player.video.clearHelpMenuGroups();
+
+          player.video.appendHelpMenuGroup(OmakasePlayerUtil.getKeyboardShortcutsHelpMenuGroup(this.windowService.platform));
+        }
       }
     });
+  }
+
+  private resolveHelpMenuSupport() {
+    const theme = this.layoutService.playerConfiguration.playerChroming?.theme;
+    if (theme === 'CHROMELESS' || theme === 'STAMP') {
+      return false;
+    }
+    return true;
   }
 
   @HostBinding('class.omakase-player-div')

@@ -20,7 +20,7 @@ import {UserAgent} from '../browser/window.service';
 const playerPlaybackRateList = [0.25, 0.5, 0.75, 1, 2, 4, 8];
 
 export class OmakasePlayerUtil {
-  public static getKeyboardShortcutsHelpMenuGroup(platform: 'unknown' | 'macos' | 'windows' | 'linux'): HelpMenuGroup[] {
+  public static getKeyboardShortcutsHelpMenuGroup(platform: 'unknown' | 'macos' | 'windows' | 'linux'): HelpMenuGroup {
     let keyCombination = (...keys: string[]) => {
       return keys.join(' + ');
     };
@@ -111,12 +111,10 @@ export class OmakasePlayerUtil {
       },
     ];
 
-    return [
-      {
-        name: $localize`Playback Functions Shortcuts`,
-        items: [...playbackHelpMenuItems],
-      },
-    ];
+    return {
+      name: $localize`Playback Functions Shortcuts`,
+      items: [...playbackHelpMenuItems],
+    };
   }
 
   /**

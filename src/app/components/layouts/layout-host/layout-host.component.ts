@@ -14,10 +14,14 @@
  * limitations under the License.
  */
 
-import {Component, Type, effect, inject, AfterViewChecked, input} from '@angular/core';
+import {Component, Type, inject, AfterViewChecked, input} from '@angular/core';
 import {NgComponentOutlet} from '@angular/common';
 import {LayoutService} from '../../layout-menu/layout.service';
 
+/**
+ * Component used to render currently active layout. It notifies the layout service
+ * when the layout has been rendered fully for the first time.
+ */
 @Component({
   selector: 'app-layout-host',
   standalone: true,
@@ -28,23 +32,18 @@ export class LayoutHost implements AfterViewChecked {
   layout = input.required<Type<any>>();
 
   private layoutService = inject(LayoutService);
-  private lastRenderedLayout: Type<any> | null = null;
   private shouldNotify = false;
 
   constructor() {
-    effect(() => {
-      const currentLayout = this.layout();
-      if (this.lastRenderedLayout !== currentLayout) {
-        this.lastRenderedLayout = currentLayout;
-        this.shouldNotify = true;
-      }
+    this.layoutService.onLayoutChange$.subscribe(() => {
+      this.shouldNotify = true;
     });
   }
 
   ngAfterViewChecked() {
     if (this.shouldNotify) {
       this.shouldNotify = false;
-      this.layoutService.onLayoutInitialized$.next();
+      this.layoutService.onLayoutInitialized$.next(true);
     }
   }
 }

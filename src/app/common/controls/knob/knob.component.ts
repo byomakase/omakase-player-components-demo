@@ -16,6 +16,11 @@
 
 import {Component, CUSTOM_ELEMENTS_SCHEMA, ElementRef, ViewChild, AfterViewInit, OnChanges, OnDestroy, SimpleChanges, input, output} from '@angular/core';
 
+/**
+ * Simple wrapper around knob Web component. It should always be used in place of raw web component
+ * for transparent integration with the whole angular application as it handles all possible input changes
+ * transparently with respect to component updates
+ */
 @Component({
   selector: 'app-knob-wrapper',
   template: `

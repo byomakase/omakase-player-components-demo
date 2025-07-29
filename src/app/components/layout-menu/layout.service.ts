@@ -14,66 +14,105 @@
  * limitations under the License.
  */
 
-import {Inject, inject, Injectable, Injector} from '@angular/core';
+import {Injectable} from '@angular/core';
 import {OmakasePlayerConfig} from '@byomakase/omakase-player';
 import {BehaviorSubject, Subject} from 'rxjs';
-import {PlayerService} from '../player/player.service';
-
-export type Layout = 'simple' | 'audio-mode' | 'marker-mode';
+import {Layout} from '../../model/session.model';
 
 @Injectable({
   providedIn: 'root',
 })
 export class LayoutService {
-  private playerService = inject(PlayerService);
-
   private playerConfigs: Record<Layout, OmakasePlayerConfig> = {
     'simple': {
       playerHTMLElementId: 'omakase-player',
-      mediaChrome: {
-        visibility: 'enabled',
-        trackMenuMultiselect: false,
-        trackMenuPlacement: 'bottom',
+      audioPlayMode: 'single',
+      playerChroming: {
+        theme: 'DEFAULT',
+        themeConfig: {
+          controlBarVisibility: 'ENABLED',
+        },
       },
     },
-    'audio-mode': {
+    'audio': {
       playerHTMLElementId: 'omakase-player',
-      mediaChrome: {
-        visibility: 'enabled',
-        trackMenuMultiselect: true,
-        trackMenuPlacement: 'top',
-        trackMenuFloating: true,
+      audioPlayMode: 'multiple',
+      playerChroming: {
+        theme: 'DEFAULT',
+        themeConfig: {
+          controlBarVisibility: 'ENABLED',
+          controlBar: ['BITC', 'CAPTIONS', 'DETACH', 'FRAME_BACKWARD', 'FRAME_FORWARD', 'FULLSCREEN', 'PLAY', 'PLAYBACK_RATE', 'SCRUBBER', 'TEN_FRAMES_BACKWARD', 'TEN_FRAMES_FORWARD', 'VOLUME'],
+          floatingControls: ['TRACKSELECTOR', 'HELP_MENU', 'PLAYBACK_CONTROLS'],
+          trackSelectorAutoClose: false,
+        },
       },
     },
-    'marker-mode': {
+    'marker': {
       playerHTMLElementId: 'omakase-player',
-      mediaChrome: {
-        visibility: 'enabled',
-        trackMenuMultiselect: false,
-        trackMenuPlacement: 'bottom',
+      audioPlayMode: 'single',
+      playerChroming: {
+        theme: 'DEFAULT',
+        themeConfig: {
+          controlBarVisibility: 'ENABLED',
+        },
+      },
+    },
+    'timeline': {
+      playerHTMLElementId: 'omakase-player',
+      audioPlayMode: 'single',
+      playerChroming: {
+        theme: 'DEFAULT',
+        themeConfig: {
+          controlBarVisibility: 'ENABLED',
+        },
+      },
+    },
+    'stamp': {
+      playerHTMLElementId: 'omakase-player',
+      audioPlayMode: 'single',
+      playerChroming: {
+        theme: 'STAMP',
+        themeConfig: {
+          timeFormat: 'TIMECODE',
+        },
+        watermarkVisibility: 'AUTO_HIDE',
       },
     },
   };
 
   public onLayoutChange$: BehaviorSubject<Layout> = new BehaviorSubject<Layout>('simple');
-  public onLayoutInitialized$: Subject<void> = new Subject<void>();
-  private _layout: Layout = 'simple';
+  public onLayoutInitialized$: Subject<boolean> = new BehaviorSubject<boolean>(false);
 
-  private injector = Inject(Injector);
+  private _layout: Layout = 'simple';
+  private _layouts: Layout[] = ['simple', 'audio', 'marker', 'timeline', 'stamp'];
 
   public set layout(value: Layout) {
     this._layout = value;
+    this.onLayoutInitialized$.next(false);
     this.onLayoutChange$.next(value);
   }
 
+  /**
+   * Active layout
+   */
   public get layout() {
     return this._layout;
   }
 
+  /**
+   * All available layouts
+   */
   public get layouts(): Layout[] {
-    return ['simple', 'audio-mode', 'marker-mode'];
+    return this._layouts;
   }
 
+  public set layouts(value: Layout[]) {
+    this._layouts = value;
+  }
+
+  /**
+   * Player configuration for active layout
+   */
   public get playerConfiguration() {
     return this.playerConfigs[this._layout];
   }

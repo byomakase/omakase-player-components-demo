@@ -21,6 +21,9 @@ import {WindowToken} from './window.provider';
 export type UserAgent = 'unknown' | 'android' | 'firefox' | 'edge' | 'chrome' | 'chromium' | 'safari';
 export type UserAgentPlatform = 'unknown' | 'macos' | 'windows' | 'linux';
 
+/**
+ * Service used to fetch information about user agent and browser window
+ */
 @Injectable({
   providedIn: 'root',
 })

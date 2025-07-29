@@ -14,10 +14,11 @@
  * limitations under the License.
  */
 
-import {Component, computed, input, output} from '@angular/core';
+import {Component, computed, inject, input, output} from '@angular/core';
 import {IconDirective} from '../../../common/icon/icon.directive';
 import {StringUtil} from '../../../common/util/string-util';
-import {MarkerTrack} from './marker-track.service';
+import {MarkerTrack, MarkerTrackService} from './marker-track.service';
+import {ColorSquareComponent} from '../../../common/controls/color-picker/multicolor-square.component';
 
 @Component({
   selector: 'app-marker-track-display',
@@ -26,7 +27,12 @@ import {MarkerTrack} from './marker-track.service';
       <div class="text-container">
         <div class="label">{{ markerTrack().label }}</div>
         <div class="lower-container">
+          @if(markerTrack().color !== 'multicolor') {
           <div class="color-display" [style]="{'background-color': markerTrack().color}"></div>
+          } @else {
+          <app-multicolor-square [colors]="markerTrackService.MULTICOLOR_COLORS"> </app-multicolor-square>
+
+          }
           <div class="url">{{ filename() }}</div>
         </div>
       </div>
@@ -34,13 +40,14 @@ import {MarkerTrack} from './marker-track.service';
       <i appIcon="delete" (click)="deleted.emit()"></i>
     </div>
   `,
-  imports: [IconDirective],
+  imports: [IconDirective, ColorSquareComponent],
   host: {
     'class': 'marker-track-display',
   },
 })
 export class MarkerTrackDisplay {
   markerTrack = input.required<MarkerTrack>();
+  markerTrackService = inject(MarkerTrackService);
   filename = computed(() => StringUtil.leafUrlToken(this.markerTrack().src));
   deleted = output<void>();
 }

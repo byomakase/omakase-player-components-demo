@@ -14,14 +14,14 @@
  * limitations under the License.
  */
 
-import {Component, HostListener, inject, signal} from '@angular/core';
+import {Component, effect, HostListener, inject, signal} from '@angular/core';
 import {FormControl, FormGroup, ReactiveFormsModule} from '@angular/forms';
 import {FlyOutService} from '../fly-out.service';
 import {IconDirective} from '../../../common/icon/icon.directive';
-import {SidecarDisplay} from './sidecar-display.component';
 import {allowedNameValidator} from '../../../common/validators/allowed-name-validator';
 import {NgbTooltip} from '@ng-bootstrap/ng-bootstrap';
 import {SidecarAudioService} from './sidecar-audio-service/sidecar-audio.service';
+import {SidecarDisplay} from '../common/sidecar-display.component';
 
 const urlRegex = /[-a-zA-Z0-9@:%._\+~#=]{1,256}\.[a-zA-Z0-9()]{1,6}\b([-a-zA-Z0-9()@:%_\+.~#?&//=]*)/;
 
@@ -69,12 +69,17 @@ export class AddSidecarAudioFlyOut {
 
   private flyOutService = inject(FlyOutService);
   public sidecarAudioService = inject(SidecarAudioService);
-
+  // public sidecarAudioService;
   public isAddDisabled = signal(true);
 
   constructor() {
     this.form.controls.url.valueChanges.subscribe(() => {
       this.isAddDisabled.set(this.form.controls.url.errors != null);
+    });
+
+    effect(() => {
+      console.log(this.sidecarAudioService.sidecarAudios());
+      console.log(this.sidecarAudioService);
     });
   }
 

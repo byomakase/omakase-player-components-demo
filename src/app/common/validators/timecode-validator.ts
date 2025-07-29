@@ -16,6 +16,12 @@
 
 import {AbstractControl, ValidationErrors, ValidatorFn} from '@angular/forms';
 
+/**
+ *
+ * @param {number | undefined} framerate
+ * @param {boolean} dropFrame
+ * @returns {ValidationErrors | null}
+ */
 export function timecodeValidator(framerate: number | undefined, dropFrame = false): ValidatorFn {
   return (control: AbstractControl<string>): ValidationErrors | null => {
     let valid = true;

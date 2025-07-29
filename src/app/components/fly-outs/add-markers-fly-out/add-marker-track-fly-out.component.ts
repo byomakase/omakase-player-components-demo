@@ -18,14 +18,13 @@ import {Component, HostListener, inject, signal} from '@angular/core';
 import {FormControl, FormGroup, ReactiveFormsModule} from '@angular/forms';
 import {FlyOutService} from '../fly-out.service';
 import {IconDirective} from '../../../common/icon/icon.directive';
-
 import {allowedNameValidator} from '../../../common/validators/allowed-name-validator';
 import {NgbTooltip} from '@ng-bootstrap/ng-bootstrap';
 import {ColorPickerComponent} from '../../../common/controls/color-picker/color-picker.component';
 import {MarkerTrack, MarkerTrackService} from './marker-track.service';
 import {MarkerTrackDisplay} from './marker-track-dispaly.component';
-import {ColorService} from '../../../common/services/color.service';
 import {CheckboxComponent} from '../../../common/controls/checkbox/checkbox.component';
+import {ColorSquareComponent} from '../../../common/controls/color-picker/multicolor-square.component';
 
 const urlRegex = /[-a-zA-Z0-9@:%._\+~#=]{1,256}\.[a-zA-Z0-9()]{1,6}\b([-a-zA-Z0-9()@:%_\+.~#?&//=]*)/;
 
@@ -56,12 +55,17 @@ const COLOR_RESOLVER_ID = 'marker-fly-out';
             <label class="input-label">Read only</label>
           </div>
           <div class="input-wrapper color-picker-wrapper input-wrapper-no-margin">
+            @if (form.controls.color.value !== 'multicolor') {
             <div class="color-display" [style]="{backgroundColor: form.controls.color.value}" (click)="isColorPickerOpen.set(true)"></div>
+            } @else {
+            <app-multicolor-square (click)="isColorPickerOpen.set(true)" [colors]="markerTrackService.MULTICOLOR_COLORS"> </app-multicolor-square>
+
+            }
             <label class="input-label">Color</label>
           </div>
           @if (isColorPickerOpen()) {
           <div class="color-picker-wrapper">
-            <app-color-picker #colorPicker [colors]="COLORS" [activeColor]="form.controls.color.value!" (clickOutside)="closeColorPicker()" (selectedColor)="setColor($event)" />
+            <app-color-picker #colorPicker [colors]="markerTrackService.COLORS" [activeColor]="form.controls.color.value!" (clickOutside)="closeColorPicker()" (selectedColor)="setColor($event)" />
           </div>
           }
           <div class="button-wrapper">
@@ -71,7 +75,7 @@ const COLOR_RESOLVER_ID = 'marker-fly-out';
       </div>
     </div>
   `,
-  imports: [ReactiveFormsModule, IconDirective, MarkerTrackDisplay, NgbTooltip, ColorPickerComponent, CheckboxComponent],
+  imports: [ReactiveFormsModule, IconDirective, MarkerTrackDisplay, NgbTooltip, ColorPickerComponent, CheckboxComponent, ColorSquareComponent],
 })
 export class AddMarkerTrackFlyOut {
   form = new FormGroup({
@@ -81,12 +85,8 @@ export class AddMarkerTrackFlyOut {
     color: new FormControl<string>(''),
   });
 
-  public COLORS = ['#CE9DD6', '#9DADD6', '#62C0A4', '#E5EAA2', '#FFBB79', '#F57F65', '#D69D9D', '#E335FF', '#316BFF', '#15EBAB', '#EEFF2F', '#FF8E21', '#FF3306', '#FF7272'];
-
   private flyOutService = inject(FlyOutService);
   public markerTrackService = inject(MarkerTrackService);
-  private colorService = inject(ColorService);
-  public colorResolver = this.colorService.createColorResolver(COLOR_RESOLVER_ID, this.COLORS);
 
   public isAddDisabled = signal(true);
   public isColorPickerOpen = signal(false);
@@ -103,7 +103,7 @@ export class AddMarkerTrackFlyOut {
     this.form.controls.url.valueChanges.subscribe(() => {
       this.isAddDisabled.set(this.form.controls.url.errors != null);
     });
-    this.form.controls.color.setValue(this.colorResolver.getColor());
+    this.form.controls.color.setValue('multicolor');
   }
 
   close() {
@@ -114,19 +114,21 @@ export class AddMarkerTrackFlyOut {
     this.form.controls.readOnly.setValue(!this.form.controls.readOnly.value);
   }
 
+  /**
+   * Adds a marker track and resets the form
+   */
   addMarkerTrack() {
     const label = this.form.value.label === null || this.form.value.label === '' ? undefined : this.form.value.label;
     this.markerTrackService.addMarkerTrack({
+      id: crypto.randomUUID(),
       src: this.form.value.url!,
       label: label,
       color: this.form.value.color!,
       readOnly: !!this.form.value.readOnly,
     });
 
-    this.colorResolver.incrementColorUsage(this.form.value.color!);
-
     this.form.reset();
-    this.form.controls.color.setValue(this.colorResolver.getColor());
+    this.form.controls.color.setValue('multicolor');
     this.form.controls.readOnly.setValue(true);
   }
 

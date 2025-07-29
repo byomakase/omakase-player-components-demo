@@ -15,6 +15,12 @@
  */
 
 export class StringUtil {
+  /**
+   * Checks if a string is null, undefined or whitespace
+   *
+   * @param {string | undefined | null} value
+   * @returns {boolean}
+   */
   public static isNullUndefinedOrWhitespace(value: string | undefined | null): boolean {
     if (typeof value === void 0 || value == null) {
       return true;
@@ -22,10 +28,23 @@ export class StringUtil {
     return `${value}`.replace(/\s/g, '').length < 1;
   }
 
+  /**
+   * Checks if a string is empty
+   *
+   * @param {string | undefined | null} value
+   * @returns {boolean}
+   */
   public static isNonEmpty(value: string | undefined | null): boolean {
     return !StringUtil.isNullUndefinedOrWhitespace(value);
   }
 
+  /**
+   * Checks if a string ends with a suffix
+   *
+   * @param {string} value - string which ending is compared with suffix
+   * @param {string} suffix
+   * @returns {boolean} - true if value ends with suffix
+   */
   public static endsWith(value: string, suffix: string): boolean {
     if (!StringUtil.isNullUndefinedOrWhitespace(value) && !StringUtil.isNullUndefinedOrWhitespace(suffix)) {
       return value.indexOf(suffix, value.length - suffix.length) !== -1;
@@ -34,6 +53,12 @@ export class StringUtil {
     }
   }
 
+  /**
+   * Returns last part of url path, often a filename, or empty string if the argument is not valid url
+   *
+   * @param {string} url - whole url
+   * @returns {string} - last url element
+   */
   public static leafUrlToken(url: string) {
     const index = url.lastIndexOf('/');
 
@@ -44,6 +69,20 @@ export class StringUtil {
     return '';
   }
 
+  public static decodeBase64(base64String: string) {
+    try {
+      return atob(base64String);
+    } catch {
+      return undefined;
+    }
+  }
+
+  /**
+   * Converts a string to mixed case
+   *
+   * @param value - string to be converted into mixed case
+   * @returns {string} - `value` converted to mixed case
+   */
   public static toMixedCase(value: string): string {
     return value
       .replace(/_/g, ' ')
@@ -54,6 +93,13 @@ export class StringUtil {
       .join(' ');
   }
 
+  /**
+   * Replaces all whitespace with a specified string
+   *
+   * @param {string} searchValue
+   * @param {string} replaceValue
+   * @returns {string}
+   */
   public static replaceWhitespace(searchValue: string, replaceValue: string): string {
     return searchValue
       ? searchValue
@@ -63,23 +109,12 @@ export class StringUtil {
       : searchValue;
   }
 
-  public static whitespacesToCommas(searchValue: string): string {
-    return StringUtil.replaceWhitespace(searchValue, ',');
-  }
-
-  public static tokenizeWhitespaceSeparated(value: string): string[] | undefined {
-    return value ? StringUtil.replaceWhitespace(value, ' ').split(' ') : void 0;
-  }
-
-  public static replaceLastOccurrence(str: string, searchString: string, replaceString: string): string {
-    const lastIndex = str.lastIndexOf(searchString);
-    if (lastIndex === -1) {
-      return str;
-    }
-
-    return str.substring(0, lastIndex) + replaceString + str.substring(lastIndex + searchString.length);
-  }
-
+  /**
+   * Extract a first comment from vtt cue. Returns undefined if cue has no comments
+   *
+   * @param {string} cueText
+   * @returns {string | undefined}
+   */
   public static extractComment(cueText: string): string | undefined {
     const match = cueText.match(/:COMMENT=([^\n\r]+)/);
     if (!match) return undefined;
@@ -89,12 +124,24 @@ export class StringUtil {
     return raw;
   }
 
+  /**
+   * Removes all HTML tags from a string
+   *
+   * @param {string} text
+   * @returns {string}
+   */
   public static stripHtml(text: string) {
     const parser = new DOMParser();
     const doc = parser.parseFromString(text, 'text/html');
     return doc.documentElement.textContent || '';
   }
 
+  /**
+   * Removes all JSON objects from a string
+   *
+   * @param {string} text
+   * @returns {string}
+   */
   public static stripJson(text: string) {
     interface Accumulator {
       sanitizedString: string;
@@ -177,6 +224,3 @@ export class StringUtil {
     return acc.sanitizedString + acc.pendingSubstring;
   }
 }
-
-// @ts-ignore
-window.sa = StringUtil;

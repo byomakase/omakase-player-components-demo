@@ -16,7 +16,7 @@
 
 import {OmpAudioTrack} from '@byomakase/omakase-player';
 import {Signal} from '@angular/core';
-import {Subject} from 'rxjs';
+import {Observable, Subject} from 'rxjs';
 
 export type SidecarAudio = Partial<OmpAudioTrack> & {src: string};
 
@@ -26,10 +26,11 @@ export abstract class AbstractSidecarAudioService {
   abstract noUserLabelSidecarAudioIds: Signal<string[]>;
   abstract sidecarAudios: Signal<SidecarAudio[]>;
 
-  abstract addSidecarAudio(sidecarAudio: SidecarAudio): void;
+  abstract addSidecarAudio(sidecarAudio: SidecarAudio, showSuccessToast: boolean): Observable<boolean>;
   abstract removeSidecarAudio(sidecarAudio: SidecarAudio): void;
   abstract reloadSidecarAudios(sidecarAudios: SidecarAudio[], sidecarAudioTracks: OmpAudioTrack[]): void;
   abstract removeAllSidecarAudios(): void;
-  abstract activateSidecarAudio(sidecarAudio: SidecarAudio, muteOthers?: boolean): void;
+  abstract activateSidecarAudio(sidecarAudio: SidecarAudio, deactivateOthers?: boolean): void;
   abstract deactivateAllSidecarAudios(): void;
+  abstract reset(): void;
 }

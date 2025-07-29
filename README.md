@@ -92,12 +92,13 @@ The marker names would be `Something interesting`, `Using JSON` and `Marker 3` r
 
 Currently supported media formats are:
 
-| Media type    | Formats       |
-| ------------- | ------------- |
-| Main media    | M3U8, MP4     |
-| Sidecar audio | AAC, AC3, MP4 |
-| Sidecar text  | VTT           |
-| Marker track  | VTT           |
+| Media type      | Formats       |
+| --------------- | ------------- |
+| Main media      | M3U8, MP4     |
+| Sidecar audio   | AAC, AC3, MP4 |
+| Sidecar text    | VTT           |
+| Marker track    | VTT           |
+| Thumbnail track | VTT           |
 
 To make this app easier to use, we included a few links of various media and sidecars:
 
@@ -123,6 +124,10 @@ To make this app easier to use, we included a few links of various media and sid
 
 - [Meridian scenes marker track](https://github-media.assets.byomakase.org/meridian-scenes.vtt)
 - [Meridian points of interest marker track](https://github-media.assets.byomakase.org/meridian-poi.vtt)
+
+### Thumbnail Track
+
+- [Meridian thumbnail track](https://github-media.assets.byomakase.org/meridian_en_720p24/thumbnails/thumbnails.vtt)
 
 ## Links
 

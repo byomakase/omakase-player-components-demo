@@ -15,10 +15,10 @@
  */
 
 import {Component, inject, OnDestroy, signal} from '@angular/core';
-import {FlyOutService} from '../fly-outs/fly-out.service';
-import {IconDirective} from '../../common/icon/icon.directive';
-import {PlayerService} from '../player/player.service';
 import {Subject, takeUntil} from 'rxjs';
+import {IconDirective} from '../../../common/icon/icon.directive';
+import {FlyOutService} from '../fly-out.service';
+import {PlayerService} from '../../player/player.service';
 @Component({
   selector: 'div[fly-out-menu]',
   imports: [IconDirective],

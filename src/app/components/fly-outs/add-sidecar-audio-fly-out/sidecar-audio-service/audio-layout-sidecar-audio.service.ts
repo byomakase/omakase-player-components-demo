@@ -16,7 +16,7 @@
 
 import {computed, inject, Injectable, signal} from '@angular/core';
 import {OmakasePlayer, OmpAudioTrack} from '@byomakase/omakase-player';
-import {Subject} from 'rxjs';
+import {Observable, Subject} from 'rxjs';
 import {PlayerService} from '../../../player/player.service';
 import {ToastService} from '../../../../common/toast/toast.service';
 import {StringUtil} from '../../../../common/util/string-util';
@@ -82,37 +82,55 @@ export class AudioLayoutSidecarAudioService extends AbstractSidecarAudioService 
     return [...this.loadedSidecarAudios(), ...this._pendingSidecarAudios()];
   });
 
-  public addSidecarAudio(sidecarAudio: SidecarAudio) {
+  /**
+   * Loads and activates a sidecar audio. Already active side car audios will remain active.
+   * If label is not present in the sidecar, filename from url will be used in omakase player internally.
+   *
+   * @param {SidecarAudio} sidecarAudio
+   */
+  public addSidecarAudio(sidecarAudio: SidecarAudio, showSuccessToast: boolean = true): Observable<boolean> {
+    const result$ = new Subject<boolean>();
     this._pendingSidecarAudios.update((prev) => [...prev, sidecarAudio]);
-    let label;
-    if (sidecarAudio.label === '') {
-      label = StringUtil.leafUrlToken(sidecarAudio.src);
-    } else {
-      label = sidecarAudio.label;
-    }
 
-    this.playerService
-      .omakasePlayer!.audio.createSidecarAudioTrack({
-        src: sidecarAudio.src,
-        label: label!,
-      })
-      .subscribe({
-        next: (audioTrack: OmpAudioTrack) => {
-          this.playerService.omakasePlayer!.audio.activateSidecarAudioTracks([audioTrack.id], false);
-          this._pendingSidecarAudios.update((prev) => prev.filter((psa) => psa !== sidecarAudio));
-          if (sidecarAudio.label === '') {
-            this.noUserLabelSidecarAudioIds.update((prev) => [...prev, audioTrack.id]);
-          }
-          sidecarAudio.id = audioTrack.id;
+    const label = sidecarAudio.label === '' ? StringUtil.leafUrlToken(sidecarAudio.src) : sidecarAudio.label;
+
+    this.playerService.omakasePlayer!.audio.createSidecarAudioTrack({src: sidecarAudio.src, label: label!}).subscribe({
+      next: (audioTrack: OmpAudioTrack) => {
+        this.playerService.omakasePlayer!.audio.activateSidecarAudioTracks([audioTrack.id], false);
+
+        this._pendingSidecarAudios.update((prev) => prev.filter((psa) => psa !== sidecarAudio));
+
+        if (sidecarAudio.label === '') {
+          this.noUserLabelSidecarAudioIds.update((prev) => [...prev, audioTrack.id]);
+        }
+
+        sidecarAudio.id = audioTrack.id;
+
+        if (showSuccessToast) {
           this.toastService.show({message: 'Sidecar successfully loaded', type: 'success', duration: 5000});
-        },
-        error: () => {
-          this.removeSidecarAudio(sidecarAudio);
-          this.toastService.show({message: 'Sidecar load failed', type: 'error', duration: 5000});
-        },
-      });
+        }
+
+        result$.next(true);
+        result$.complete();
+      },
+      error: () => {
+        this.removeSidecarAudio(sidecarAudio);
+
+        this.toastService.show({message: 'Sidecar load failed', type: 'error', duration: 5000});
+
+        result$.next(false);
+        result$.complete();
+      },
+    });
+
+    return result$;
   }
 
+  /**
+   * Deletes the sidecar audio from OPCD session
+   *
+   * @param {SidecarAudio} sidecarAudio
+   */
   public removeSidecarAudio(sidecarAudio: SidecarAudio) {
     if (sidecarAudio.id) {
       this.playerService.omakasePlayer!.audio.removeSidecarAudioTracks([sidecarAudio.id]);
@@ -120,8 +138,14 @@ export class AudioLayoutSidecarAudioService extends AbstractSidecarAudioService 
     this._pendingSidecarAudios.update((prev) => prev.filter((sidecar) => sidecar !== sidecarAudio));
   }
 
+  /**
+   * Reloads sidecar audios. This method is usually called after the player has been destroyed, the arguments should
+   * capture the player state before destruction
+   *
+   * @param {SidecarAudio[]} sidecarAudios - Sidecar audios
+   * @param {OmpAudioTrack[]} sidecarAudioTracks - Sidecar tracks registered with Omakase player
+   */
   public reloadSidecarAudios(sidecarAudios: SidecarAudio[], sidecarAudioTracks: OmpAudioTrack[]) {
-    console.log(sidecarAudioTracks);
     sidecarAudios
       .filter((sidecarAudio) => sidecarAudio.id)
       .forEach((sidecarAudio) => {
@@ -135,19 +159,37 @@ export class AudioLayoutSidecarAudioService extends AbstractSidecarAudioService 
       });
   }
 
+  /**
+   * Removes all sidecar audios from OPCD session
+   */
   public removeAllSidecarAudios() {
     this.playerService.omakasePlayer!.audio.removeAllSidecarAudioTracks();
   }
 
-  public activateSidecarAudio(sidecarAudio: SidecarAudio, muteOthers: boolean = true) {
+  /**
+   * Activates a sidecar audio
+   *
+   * @param {SidecarAudio} sidecarAudio - sidecar audio to activate
+   * @param {boolean} deactivateOthers - should other sidecars be deactivated
+   */
+  public activateSidecarAudio(sidecarAudio: SidecarAudio, deactivateOthers: boolean = true) {
     if (sidecarAudio.id) {
-      this.playerService.omakasePlayer!.audio.activateSidecarAudioTracks([sidecarAudio.id], muteOthers);
+      this.playerService.omakasePlayer!.audio.activateSidecarAudioTracks([sidecarAudio.id], deactivateOthers);
     } else {
       console.error('Sidecar audio is not loaded');
     }
   }
 
+  /**
+   * Deactivates all sidecar audios
+   */
   public deactivateAllSidecarAudios() {
     this.playerService.omakasePlayer!.audio.deactivateSidecarAudioTracks(undefined);
+  }
+
+  public reset() {
+    this.loadedSidecarAudios.set([]);
+    this._pendingSidecarAudios.set([]);
+    this.noUserLabelSidecarAudioIds.set([]);
   }
 }

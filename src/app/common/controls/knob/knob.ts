@@ -14,6 +14,19 @@
  * limitations under the License.
  */
 
+/**
+ * Typescript component used to emulate physical knob found on various audio equipment.
+ *
+ * Observed Attributes:
+ * - `min` - Minimal possible value
+ * - `max` - Maximal possible value
+ * - `min-angle` - Angle at which minimal value is achieved
+ * - `max-angle` - Angle at which maximal value is achieved
+ * - `value` - Current value, Angle is calculated based on it
+ * - `rotation-speed - Constant that control knob speed on vertical drag
+ * - `radius` - knob radius in pixels
+ * - `max-tick-count` - number of ticks around knob
+ */
 class KnobControl extends HTMLElement {
   private value: number = 0;
   private min: number = 0;
@@ -56,6 +69,9 @@ class KnobControl extends HTMLElement {
     }
   }
 
+  /**
+   * Attaches all required listeners to document and knob element
+   */
   private attachListeners() {
     this.knobElement.addEventListener('mousedown', this.startDrag);
     document.addEventListener('mousemove', this.onDrag);
@@ -63,6 +79,9 @@ class KnobControl extends HTMLElement {
     this.knobElement.addEventListener('wheel', this.onScroll.bind(this));
   }
 
+  /**
+   * Appends the ticks to DOM
+   */
   private renderTicks() {
     const ticksContainer = this.querySelector('.ticks');
     if (!ticksContainer) return;
@@ -146,21 +165,33 @@ class KnobControl extends HTMLElement {
     this.setValue(this.value);
   }
 
-  setValue(val: number) {
-    val = Math.max(this.min, Math.min(this.max, val));
-    const percent = (val - this.min) / (this.max - this.min);
+  /**
+   * Used to set new value of the knob. It won't trigger a total component rerender.
+   * It will only update knob rotation.
+   *
+   * @param {number} value - New value to be set
+   */
+  setValue(value: number) {
+    value = Math.max(this.min, Math.min(this.max, value));
+    const percent = (value - this.min) / (this.max - this.min);
     const deg = this.minAngle + percent * (this.maxAngle - this.minAngle);
     this.currentDeg = deg;
-    this.value = val;
+    this.value = value;
     if (this.knobElement) {
       this.knobElement.style.transform = `translate(-50%, -50%) rotate(${deg}deg)`;
     }
+
+    this.dispatchEvent(new CustomEvent('input', {detail: this.value}));
+    this.onValueChangeCallback?.(this.value);
   }
 
   set onValueChange(callback: (value: number) => void) {
     this.onValueChangeCallback = callback;
   }
 
+  /**
+   * Renders the whole component to DOM. It does not take value into the account
+   */
   private render() {
     const fullSize = this.radius * 2 + 10;
 
@@ -243,6 +274,12 @@ class KnobControl extends HTMLElement {
     this.isDragging = false;
   }
 
+  /**
+   * Calculates new value based on current vertical displacement from initial drag position
+   *
+   * @param {MouseEvent} event
+   * @returns
+   */
   private onDrag(event: MouseEvent) {
     if (!this.isDragging) return;
 
@@ -251,36 +288,26 @@ class KnobControl extends HTMLElement {
 
     let nextDeg = this.currentDeg + deltaY * 0.5 * this.rotationSpeed;
     nextDeg = Math.max(this.minAngle, Math.min(this.maxAngle, nextDeg));
-    this.currentDeg = nextDeg;
-    this.knobElement.style.transform = `translate(-50%, -50%) rotate(${nextDeg}deg)`;
 
     const percent = (nextDeg - this.minAngle) / (this.maxAngle - this.minAngle);
-    this.value = this.min + percent * (this.max - this.min);
-    this.dispatchEvent(new CustomEvent('input', {detail: this.value}));
-    this.onValueChangeCallback?.(this.value);
+    this.setValue(this.min + percent * (this.max - this.min));
   }
 
+  /**
+   * Calculates new value based on mouse wheel scroll
+   *
+   * @param {WheelEvent} event
+   */
   private onScroll(event: WheelEvent) {
     event.preventDefault();
 
     const delta = -event.deltaY;
     const step = (this.max - this.min) / 100;
 
-    const valueRange = this.max - this.min;
-    const angleRange = this.maxAngle - this.minAngle;
-
     const valueDelta = step * Math.sign(delta);
     const newValue = Math.max(this.min, Math.min(this.max, this.value + valueDelta));
 
-    const percent = (newValue - this.min) / valueRange;
-    const newDeg = this.minAngle + percent * angleRange;
-
-    this.value = newValue;
-    this.currentDeg = newDeg;
-    this.knobElement.style.transform = `translate(-50%, -50%) rotate(${newDeg}deg)`;
-
-    this.dispatchEvent(new CustomEvent('input', {detail: this.value}));
-    this.onValueChangeCallback?.(this.value);
+    this.setValue(newValue);
   }
 }
 

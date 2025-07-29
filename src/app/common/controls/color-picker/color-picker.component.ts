@@ -18,22 +18,26 @@ import {CommonModule} from '@angular/common';
 import {Component, ElementRef, HostListener, input, OnInit, output} from '@angular/core';
 import {IconModule} from '../../icon/icon.module';
 import {ColorUtil} from '../../util/color-util';
+import {ColorSquareComponent} from './multicolor-square.component';
 
+/**
+ * Component used for color picking.
+ * Provided colors should be valid css colors.
+ */
 @Component({
   selector: 'app-color-picker',
   standalone: true,
-  imports: [IconModule, CommonModule],
+  imports: [IconModule, CommonModule, ColorSquareComponent],
   template: `<div class="color-picker-container">
-    <!-- @for (color of colors(); track color) {
-    <div [className]="color === activeColor() ? 'color-picker-color selected' : 'color-picker-color'" [ngStyle]="{'background-color': color}" (click)="selectColor(color)"></div>
-    } -->
-    @for (color of colors(); track color) {
+    @for (color of colors(); track color) { @if (color === 'multicolor') {
+    <app-multicolor-square [active]="color === activeColor()" (click)="selectColor('multicolor')" [colors]="colors().slice(1, 5)"> </app-multicolor-square>
+    } @else {
     <div class="color-picker-color" [ngStyle]="{'background-color': color}" (click)="selectColor(color)">
       @if (color === activeColor()) {
       <i appIcon="checkbox-checked" [ngStyle]="{color: checkboxColor}"></i>
       }
     </div>
-    }
+    } }
   </div>`,
 })
 export class ColorPickerComponent implements OnInit {
@@ -48,7 +52,7 @@ export class ColorPickerComponent implements OnInit {
   constructor(private elementRef: ElementRef) {}
 
   ngOnInit() {
-    if (this.activeColor()) {
+    if (this.activeColor() && this.activeColor() !== 'multicolor') {
       this.checkboxColor = ColorUtil.getContrastingTextColor(this.activeColor()!);
     }
   }
