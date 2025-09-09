@@ -21,11 +21,16 @@ import {SidecarAudioService} from '../../components/fly-outs/add-sidecar-audio-f
 import {SidecarTextService} from '../../components/fly-outs/add-sidecar-text-fly-out/text-sidecar.service';
 import {PlayerService} from '../../components/player/player.service';
 import {HttpClient} from '@angular/common/http';
-import {Layout, SessionData, SidecarMedia} from '../../model/session.model';
+import {ChartType, Layout, SessionData, SidecarMedia, TrackVisualization} from '../../model/session.model';
 import {MarkerTrackService} from '../../components/fly-outs/add-markers-fly-out/marker-track.service';
 import {ColorService} from '../services/color.service';
 import {ToastService} from '../toast/toast.service';
 import {sessionSchema} from './session-validator';
+import {ObservationTrackService, ObservationTrackVisualization} from '../../components/fly-outs/add-observation-track-fly-out/observation-track.service';
+import {Constants} from '../../constants/constants';
+import {FlyOutService} from '../../components/fly-outs/fly-out.service';
+import {ColorUtil} from '../util/color-util';
+import {StringUtil} from '../util/string-util';
 
 /**
  * Service handling layout switching inside a session. All layout switches MUST be done through this service so that all loaded media is preserved.
@@ -41,9 +46,12 @@ export class SessionService {
   private sidecarTextService = inject(SidecarTextService);
   private playerService = inject(PlayerService);
   private markerTrackService = inject(MarkerTrackService);
+  private observationTrackService = inject(ObservationTrackService);
   private http = inject(HttpClient);
   private colorService = inject(ColorService);
+  private observationTracksColorResolver = this.colorService.createColorResolver(Constants.COLOR_RESOLVER_IDS.observationTrack, this.observationTrackService.COLORS);
   private toastService = inject(ToastService);
+  private flyOutService = inject(FlyOutService);
 
   /**
    * Change layout and reload all media that has been loaded.
@@ -54,6 +62,8 @@ export class SessionService {
     if (this.playerService.omakasePlayer) {
       const video = this.playerService.omakasePlayer.video.getVideo();
       const videoLoadOptions = this.playerService.omakasePlayer.video.getVideoLoadOptions();
+
+      const isMainMediaAudio = this.playerService.isMainMediaAudio;
 
       const audioSidecars = this.sidecarAudioService.sidecarAudios();
       const noUserLabelSidecarAudioIds = this.sidecarAudioService.noUserLabelSidecarAudioIds();
@@ -78,11 +88,18 @@ export class SessionService {
                 this.sidecarAudioService.addSidecarAudio({src: sidecar.src, label: label}, false);
               });
 
-              textSidecars.forEach((sidecar) => {
-                const label = this.sidecarTextService.noUserLabelSidecarTextIds().includes(sidecar.id!) ? '' : sidecar.label;
+              player.subtitles.onSubtitlesLoaded$
+                .pipe(
+                  filter((p) => !!p),
+                  take(1)
+                )
+                .subscribe((event) => {
+                  textSidecars.forEach((sidecar) => {
+                    const label = this.sidecarTextService.noUserLabelSidecarTextIds().includes(sidecar.id!) ? '' : sidecar.label;
 
-                this.sidecarTextService.addSidecarText({src: sidecar.src, label: label}, false);
-              });
+                    this.sidecarTextService.addSidecarText({src: sidecar.src, label: label}, false);
+                  });
+                });
             });
           });
       }
@@ -94,7 +111,7 @@ export class SessionService {
           take(1)
         )
         .subscribe(() => {
-          this.playerService.create(this.layoutService.playerConfiguration);
+          this.playerService.create(this.layoutService.getPlayerConfiguration(isMainMediaAudio));
         });
     } else {
       this.layoutService.layout = layout;
@@ -119,6 +136,10 @@ export class SessionService {
       this.layoutService.layout = this.layoutService.layouts.at(0)!;
     }
 
+    if (sessionData.presentation?.disable_media_fly_outs === true) {
+      this.flyOutService.flyoutsEnabled.set(false);
+    }
+
     this.playerService.destroy(true);
     this.layoutService.onLayoutInitialized$
       .pipe(
@@ -128,8 +149,9 @@ export class SessionService {
       .subscribe(() => {
         if (sessionData.media) {
           const mainMedia = sessionData.media.main.at(0)!; // load only the first media
+          const isMainMediaAudio = StringUtil.isAudioFile(StringUtil.leafUrlToken(mainMedia.url));
 
-          this.playerService.create(this.layoutService.playerConfiguration).subscribe((player) => {
+          this.playerService.create(this.layoutService.getPlayerConfiguration(isMainMediaAudio)).subscribe((player) => {
             player
               .loadVideo(mainMedia.url, {
                 frameRate: mainMedia.frame_rate,
@@ -137,18 +159,23 @@ export class SessionService {
                 dropFrame: mainMedia.drop_frame,
               })
               .subscribe(() => {
-                this.bootstrapSidecarMedia(sessionData.media!.sidecars!, sessionData.presentation?.read_only);
+                let visualizationsMap = undefined;
+                if (sessionData.presentation?.track_visualization) {
+                  visualizationsMap = new Map<string, TrackVisualization>(Object.entries(sessionData.presentation.track_visualization));
+                }
+                this.bootstrapSidecarMedia(sessionData.media!.sidecars!, visualizationsMap);
               });
           });
         }
       });
   }
 
-  bootstrapSidecarMedia(sidecarMedias: SidecarMedia[], readOnly: boolean | undefined) {
+  bootstrapSidecarMedia(sidecarMedias: SidecarMedia[], trackVisualizations: Map<string, TrackVisualization> | undefined) {
     const thumbnailMedia = sidecarMedias.find((sidecarMedia) => sidecarMedia.type === 'thumbnail');
     const sidecarAudios = sidecarMedias.filter((sidecarMedia) => sidecarMedia.type === 'audio');
     const sidecarTexts = sidecarMedias.filter((sidecarMedia) => sidecarMedia.type === 'text');
     const markerTracks = sidecarMedias.filter((sidecarMedia) => sidecarMedia.type === 'marker');
+    const observationTracks = sidecarMedias.filter((sidecarMedia) => sidecarMedia.type === 'observation');
 
     if (thumbnailMedia) {
       this.playerService.setThumbnailTrack(thumbnailMedia.url);
@@ -158,8 +185,37 @@ export class SessionService {
     const textsLoaded$ = sidecarTexts.map((sidecarText) => this.sidecarTextService.addSidecarText({src: sidecarText.url, label: sidecarText.label}, false));
 
     markerTracks.forEach((markerTrack) => {
-      this.markerTrackService.addMarkerTrack({id: markerTrack.id ?? crypto.randomUUID(), src: markerTrack.url, label: markerTrack.label, color: 'multicolor', readOnly: readOnly ?? false}, false);
+      let color;
+      let readOnly;
+      if (markerTrack.id) {
+        color = ColorUtil.parseHexColor(trackVisualizations?.get(markerTrack.id)?.color);
+        readOnly = trackVisualizations?.get(markerTrack.id)?.read_only;
+      }
+      this.markerTrackService.addMarkerTrack(
+        {id: markerTrack.id ?? crypto.randomUUID(), src: markerTrack.url, label: markerTrack.label, color: color ?? 'multicolor', readOnly: readOnly ?? false},
+        false
+      );
     });
+
+    observationTracks.forEach((observationTrack) => {
+      const id = observationTrack.id ?? crypto.randomUUID();
+      const visualization = this.resolveVisualization(trackVisualizations?.get(id)?.chart_type);
+      const color = ColorUtil.parseHexColor(trackVisualizations?.get(id)?.color);
+      this.observationTrackService.addObservationTrack(
+        {
+          id: id,
+          visualization: visualization,
+          src: observationTrack.url,
+          color: color ?? this.observationTracksColorResolver.getColor(true),
+          label: observationTrack.label,
+          minValue: trackVisualizations?.get(id)?.y_min,
+          maxValue: trackVisualizations?.get(id)?.y_max,
+        },
+        false
+      );
+    });
+
+    console.log(this.observationTrackService.observationTracks());
 
     forkJoin([...audiosLoaded$, ...textsLoaded$]).subscribe((results: boolean[]) => {
       const allTrue = results.every((r) => r === true);
@@ -175,6 +231,18 @@ export class SessionService {
         this.toastService.show({message: 'Session configuration succeeded but some sidecars failed to load', type: 'warning', duration: 5000});
       }
     });
+  }
+
+  private resolveVisualization(chartType: ChartType | undefined): ObservationTrackVisualization {
+    if (chartType === 'bar_chart') {
+      return 'bar-chart';
+    }
+
+    if (chartType === 'led_chart') {
+      return 'led-chart';
+    }
+
+    return 'line-chart';
   }
 
   constructor() {}

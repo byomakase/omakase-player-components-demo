@@ -1,6 +1,19 @@
-import {ConfigWithOptionalStyle, LabelLaneStyle, MomentMarkerStyle, PeriodMarkerStyle, SubtitlesLaneStyle, ThumbnailLaneStyle, TimelineConfig, TimelineLaneStyle} from '@byomakase/omakase-player';
+import {
+  BarChartLaneStyle,
+  ConfigWithOptionalStyle,
+  LabelLaneStyle,
+  MomentMarkerStyle,
+  PeriodMarkerStyle,
+  SubtitlesLaneStyle,
+  ThumbnailLaneStyle,
+  TimelineConfig,
+  TimelineLaneStyle,
+} from '@byomakase/omakase-player';
 
 export class Constants {
+  static COLOR_RESOLVER_IDS = {
+    observationTrack: 'observation-track',
+  };
   static VARIABLES = {
     leftLaneBackgroundColor: '#dacfe2',
     rightLaneBackgroundColor: '#fbf5ff',
@@ -32,6 +45,11 @@ export class Constants {
     textFill: '#000000',
     height: 36,
     backgroundFill: '#ffffff',
+  };
+
+  static OBSERVATION_CHART_LANE_STYLE: Partial<BarChartLaneStyle> = {
+    ...this.TIMELINE_LANE_STYLE,
+    height: 100,
   };
 
   static LABEL_LANE_SELECTED_STYLE: Partial<LabelLaneStyle> = {

@@ -1,0 +1,31 @@
+media-controller omakase-dropdown omakase-dropdown-list[type='checkbox'] omakase-dropdown-option.active .omakase-dropdown-option-icon {
+  background-image: url(/assets/images/omakase-player/media-chrome-checkbox-on.svg);
+}
+media-controller omakase-dropdown omakase-dropdown-list[type='radio'] omakase-dropdown-option.active .omakase-dropdown-option-icon {
+  background-image: url(/assets/images/omakase-player/media-chrome-radio-on.svg);
+}
+media-controller omakase-dropdown-toggle.active .media-chrome-audio-text {
+  background-image: url(/assets/images/omakase-player/media-chrome-audio-text-on.svg);
+}
+
+media-controller omakase-dropdown-toggle.active .media-chrome-audio {
+  background-image: url(/assets/images/omakase-player/media-chrome-audio-on.svg);
+}
+.omakase-help .omakase-help-dropdown .omakase-help-menu .omakase-help-group-title {
+  background: #662d91;
+  text-transform: uppercase;
+  font-size: 12px;
+  line-height: 17px;
+  color: #fff;
+}
+.omakase-help .omakase-help-dropdown .omakase-help-menu .omakase-help-group {
+  background: #662d91 33;
+  border-radius: 3px;
+}
+.omakase-help .omakase-help-dropdown .omakase-help-menu .omakase-help-group .omakase-help-item {
+  border-bottom: 1px solid #662d91;
+}
+.omakase-help .omakase-help-dropdown .omakase-help-menu .omakase-help-group .omakase-help-item:hover {
+  background: #662d91;
+  color: #fff;
+}

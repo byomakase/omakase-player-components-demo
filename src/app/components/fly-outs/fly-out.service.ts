@@ -14,14 +14,15 @@
  * limitations under the License.
  */
 
-import {inject, Injectable} from '@angular/core';
+import {inject, Injectable, signal} from '@angular/core';
 import {NgbOffcanvas, NgbOffcanvasOptions} from '@ng-bootstrap/ng-bootstrap';
 import {AddMainMediaFlyOut} from './add-main-media-fly-out/add-main-media-fly-out.components';
 import {AddSidecarAudioFlyOut} from './add-sidecar-audio-fly-out/add-sidecar-audio-fly-out.component';
 import {AddSidecarTextFlyOut} from './add-sidecar-text-fly-out/add-sidecar-text-fly-out.component';
 import {AddMarkerTrackFlyOut} from './add-markers-fly-out/add-marker-track-fly-out.component';
+import {AddObservationTrackFlyOut} from './add-observation-track-fly-out/add-observation-track-fly-out.component';
 
-export type FlyOutType = 'add-main-media' | 'add-sidecar-audio' | 'add-sidecar-text' | 'add-marker-track';
+export type FlyOutType = 'add-main-media' | 'add-sidecar-audio' | 'add-sidecar-text' | 'add-marker-track' | 'add-observation-track';
 
 const baseOffcanvasOptions: NgbOffcanvasOptions = {
   position: 'end',
@@ -33,6 +34,7 @@ const baseOffcanvasOptions: NgbOffcanvasOptions = {
 })
 export class FlyOutService {
   private ngbOffcanvas = inject(NgbOffcanvas);
+  public flyoutsEnabled = signal<boolean>(true);
   constructor() {}
 
   public open(flyOutType: FlyOutType) {
@@ -51,6 +53,10 @@ export class FlyOutService {
       }
       case 'add-sidecar-text': {
         this.ngbOffcanvas.open(AddSidecarTextFlyOut, baseOffcanvasOptions);
+        break;
+      }
+      case 'add-observation-track': {
+        this.ngbOffcanvas.open(AddObservationTrackFlyOut, baseOffcanvasOptions);
       }
     }
   }

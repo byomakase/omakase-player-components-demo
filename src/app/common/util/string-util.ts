@@ -223,4 +223,14 @@ export class StringUtil {
 
     return acc.sanitizedString + acc.pendingSubstring;
   }
+
+  static isAudioFile(filename: string) {
+    const extension = filename.slice(filename.lastIndexOf('.'));
+
+    if (extension && ['.aac', '.AAC', '.mp3', '.MP3', '.wav', '.WAV'].includes(extension)) {
+      return true;
+    }
+
+    return false;
+  }
 }

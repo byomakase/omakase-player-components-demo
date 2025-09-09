@@ -1,6 +1,6 @@
 {
   "name": "omakase-player-components-demo",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "scripts": {
     "build:dev": "rm -rf dist && ng build",
     "build:prod": "rm -rf dist && ng build"
@@ -15,7 +15,7 @@
     "@angular/platform-browser": "^19.0.0",
     "@angular/platform-browser-dynamic": "^19.0.0",
     "@angular/router": "^19.0.0",
-    "@byomakase/omakase-player": "0.20.0",
+    "@byomakase/omakase-player": "0.21.1",
     "@byomakase/vu-meter": "^1.1.0",
     "@ng-bootstrap/ng-bootstrap": "^18.0.0",
     "@popperjs/core": "^2.11.8",

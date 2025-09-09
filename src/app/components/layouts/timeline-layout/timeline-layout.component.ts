@@ -19,7 +19,20 @@ import {PlayerComponent} from '../../player/player.component';
 import {MarkerTrack, MarkerTrackService} from '../../fly-outs/add-markers-fly-out/marker-track.service';
 import {IconDirective} from '../../../common/icon/icon.directive';
 import {LoadedSidecarText, SidecarTextService} from '../../fly-outs/add-sidecar-text-fly-out/text-sidecar.service';
-import {ImageButton, MarkerLane, MomentMarker, PeriodMarker, SubtitlesLane, SubtitlesVttTrack, ThumbnailLane, TimelineApi} from '@byomakase/omakase-player';
+import {
+  BarChartLane,
+  ImageButton,
+  LineChartLane,
+  MarkerLane,
+  MomentMarker,
+  OgChartLane,
+  PeriodMarker,
+  SubtitlesLane,
+  SubtitlesVttTrack,
+  ThumbnailLane,
+  TimelineApi,
+  TimelineLaneApi,
+} from '@byomakase/omakase-player';
 import {PlayerService} from '../../player/player.service';
 import {combineLatest, filter, Subject, takeUntil} from 'rxjs';
 import {Constants} from '../../../constants/constants';
@@ -29,6 +42,9 @@ import {MarkerListComponent} from '../../../common/marker-list/marker-list.compo
 import {CueUtil} from '../../../common/util/cue-util';
 import {ColorService} from '../../../common/services/color.service';
 import {MarkerShortcutUtil} from '../../../common/util/marker-shortcut-util';
+import {ObservationTrack, ObservationTrackService} from '../../fly-outs/add-observation-track-fly-out/observation-track.service';
+import {ColorUtil} from '../../../common/util/color-util';
+import {ObservationTrackGroupingLane, ObservationTrackGroupingLaneConfig} from '../../../common/timeline/grouping-lane/observation-grouping-lane/observation-track-grouping-lane';
 
 @Component({
   selector: 'app-timeline-layout',
@@ -59,6 +75,7 @@ export class TimelineLayoutComponent implements AfterViewInit, OnDestroy {
   public markerTrackService = inject(MarkerTrackService);
   public sidecarTextService = inject(SidecarTextService);
   public playerService = inject(PlayerService);
+  public observationTrackService = inject(ObservationTrackService);
   private colorService = inject(ColorService);
 
   private _timeline = signal<TimelineApi | undefined>(undefined);
@@ -74,6 +91,10 @@ export class TimelineLayoutComponent implements AfterViewInit, OnDestroy {
 
   private _groupingLanesByTextTrackId: Map<string, TextTrackGroupingLane> = new Map();
   private _subtitleLanesByTextTrackId: Map<string, SubtitlesLane> = new Map();
+
+  private _renderedObservationTracks: ObservationTrack[] = [];
+  private _renderedObservationLanes: TimelineLaneApi[] = [];
+  private _observationGroupingLane: ObservationTrackGroupingLane | undefined = undefined;
 
   private _isInitialRenderDone = signal<boolean>(false);
   public activeMarkerLane = signal<MarkerLane | undefined>(undefined);
@@ -114,6 +135,22 @@ export class TimelineLayoutComponent implements AfterViewInit, OnDestroy {
       this.sidecarTextService.loadedSidecarTexts().forEach((sidecarText) => {
         if (!this._renderedSidecarTextTracks.includes(sidecarText)) {
           this.createTextLaneAtIndex(sidecarText, this._renderedSidecarTextTracks.length, false);
+        }
+      });
+    });
+
+    effect(() => {
+      if (!this._timeline() || !this._isInitialRenderDone()) {
+        return;
+      }
+      this._renderedObservationTracks.forEach((observationTrack, index) => {
+        if (!this.observationTrackService.observationTracks().includes(observationTrack)) {
+          this.removeObservationLaneAtIndex(index);
+        }
+      });
+      this.observationTrackService.observationTracks().forEach((observationTrack) => {
+        if (!this._renderedObservationTracks.includes(observationTrack)) {
+          this.createObservationLaneAtIndex(observationTrack, this._renderedObservationTracks.length);
         }
       });
     });
@@ -168,6 +205,7 @@ export class TimelineLayoutComponent implements AfterViewInit, OnDestroy {
               this.createThumbnailLane();
               this.createEmbeddedTextLanes();
               this.createSidecarTextLanes();
+              this.createObservationLanes();
               this._isInitialRenderDone.set(true);
 
               player.video.appendHelpMenuGroup(MarkerShortcutUtil.getKeyboardShortcutsHelpMenuGroup('unknown'));
@@ -352,6 +390,15 @@ export class TimelineLayoutComponent implements AfterViewInit, OnDestroy {
     return numberOfMarkerLanes + numberOfThumbnailLanes + 2 * (index + numberOfEmbeddedTextLanes) + 1;
   }
 
+  private resolveObservationLaneIndex(index: number) {
+    const numberOfMarkerLanes = this._renderedMarkerTracks.length;
+    const numberOfThumbnailLanes = this._isThumbnailTrackRendered ? 1 : 0;
+    const numberOfEmbeddedTextLanes = this._renderedEmbeddedTextTracks.length;
+    const numberOfSidecarTextLanes = this._renderedSidecarTextTracks.length;
+
+    return numberOfMarkerLanes + numberOfThumbnailLanes + 2 * (numberOfEmbeddedTextLanes + numberOfSidecarTextLanes) + 1 + 1 + index;
+  }
+
   /**
    * Creates a thumbnail lane if thumbnail track is specified.
    * @returns
@@ -422,6 +469,19 @@ export class TimelineLayoutComponent implements AfterViewInit, OnDestroy {
       this._renderedEmbeddedTextTracks.push(textTrack as SubtitlesVttTrack);
     } else {
       this._renderedSidecarTextTracks.push(textTrack);
+    }
+  }
+
+  private removeObservationLaneAtIndex(index: number) {
+    const lane = this._renderedObservationLanes.at(index)!;
+    this._timeline()!.removeTimelineLane(lane.id);
+
+    this._renderedObservationLanes.splice(index, 1);
+    this._renderedObservationTracks.splice(index, 1);
+
+    if (this._renderedObservationTracks.length === 0) {
+      this._timeline()!.removeTimelineLane(this._observationGroupingLane!.id);
+      this._observationGroupingLane = undefined;
     }
   }
 
@@ -533,5 +593,56 @@ export class TimelineLayoutComponent implements AfterViewInit, OnDestroy {
         event.preventDefault();
       }
     }
+  }
+
+  private createObservationLaneAtIndex(observationTrack: ObservationTrack, index: number) {
+    let lane;
+
+    if (!this._observationGroupingLane) {
+      this._observationGroupingLane = new ObservationTrackGroupingLane({style: Constants.LABEL_LANE_STYLE, text: 'Observation Tracks'});
+      const observationGroupingLaneIndex = this.resolveObservationLaneIndex(0) - 1; //index before the first observation lane
+      this._timeline()!.addTimelineLaneAtIndex(this._observationGroupingLane, observationGroupingLaneIndex);
+    }
+
+    if (observationTrack.visualization === 'bar-chart') {
+      lane = new BarChartLane({
+        vttUrl: observationTrack.src,
+        style: {...Constants.OBSERVATION_CHART_LANE_STYLE, itemFillLinearGradientColorStops: [0, ColorUtil.getComplementaryColor(observationTrack.color), 1, observationTrack.color]},
+        description: observationTrack.label,
+        valueMin: observationTrack.minValue,
+        valueMax: observationTrack.maxValue,
+      });
+    } else if (observationTrack.visualization === 'led-chart') {
+      lane = new OgChartLane({
+        vttUrl: observationTrack.src,
+        style: {...Constants.OBSERVATION_CHART_LANE_STYLE, itemFillLinearGradientColorStops: [0, ColorUtil.getComplementaryColor(observationTrack.color), 1, observationTrack.color]},
+        description: observationTrack.label,
+        valueMin: observationTrack.minValue,
+        valueMax: observationTrack.maxValue,
+      });
+    } else {
+      lane = new LineChartLane({
+        vttUrl: observationTrack.src,
+        style: {
+          ...Constants.OBSERVATION_CHART_LANE_STYLE,
+          fill: observationTrack.color,
+          pointFill: ColorUtil.lightenColor(observationTrack.color, 10),
+          pointWidth: 3,
+        },
+        description: observationTrack.label,
+        yMin: observationTrack.minValue,
+        yMax: observationTrack.maxValue,
+      });
+    }
+
+    const realIndex = this.resolveObservationLaneIndex(index);
+    this._observationGroupingLane!.addChildLane(lane);
+    this._renderedObservationTracks.push(observationTrack);
+    this._renderedObservationLanes.push(lane);
+    this._timeline()!.addTimelineLaneAtIndex(lane, realIndex);
+  }
+
+  private createObservationLanes() {
+    this.observationTrackService.observationTracks().forEach((observationTrack, index) => this.createObservationLaneAtIndex(observationTrack, index));
   }
 }

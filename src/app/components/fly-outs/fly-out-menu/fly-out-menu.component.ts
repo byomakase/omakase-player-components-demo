@@ -23,10 +23,11 @@ import {PlayerService} from '../../player/player.service';
   selector: 'div[fly-out-menu]',
   imports: [IconDirective],
   template: `
+    @if(flyOutService.flyoutsEnabled()) {
     <div (click)="openAddMainMedia()">
       <i appIcon="play"></i>
     </div>
-    <div [class]="isVideoLoaded() ? '' : 'disabled'" (click)="openAddSidecarAudio()">
+    <div [class]="isVideoLoaded() && !playerService.isMainMediaAudio ? '' : 'disabled'" (click)="openAddSidecarAudio()">
       <i appIcon="sound-wave"></i>
     </div>
     <div [class]="isVideoLoaded() ? '' : 'disabled'" (click)="openAddSidecarText()">
@@ -35,6 +36,10 @@ import {PlayerService} from '../../player/player.service';
     <div [class]="isVideoLoaded() ? '' : 'disabled'" (click)="openAddMarkerTrack()">
       <i appIcon="pin"></i>
     </div>
+    <div [class]="isVideoLoaded() ? '' : 'disabled'" (click)="openAddObservationTrack()">
+      <i appIcon="observation"></i>
+    </div>
+    }
   `,
 })
 export class FlyOutMenu implements OnDestroy {
@@ -67,7 +72,7 @@ export class FlyOutMenu implements OnDestroy {
   }
 
   openAddSidecarAudio() {
-    if (this.isVideoLoaded()) {
+    if (this.isVideoLoaded() && !this.playerService.isMainMediaAudio) {
       this.flyOutService.open('add-sidecar-audio');
     }
   }
@@ -81,6 +86,12 @@ export class FlyOutMenu implements OnDestroy {
   openAddSidecarText() {
     if (this.isVideoLoaded()) {
       this.flyOutService.open('add-sidecar-text');
+    }
+  }
+
+  openAddObservationTrack() {
+    if (this.isVideoLoaded()) {
+      this.flyOutService.open('add-observation-track');
     }
   }
 }

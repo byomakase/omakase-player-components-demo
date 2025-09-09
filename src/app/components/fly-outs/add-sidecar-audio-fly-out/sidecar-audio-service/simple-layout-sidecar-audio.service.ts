@@ -41,6 +41,12 @@ export class SimpleLayoutSidecarAudioService {
             this.onSelectedAudioTrackChange$.next(audioSwitchedEvent.activeAudioTrack);
           });
 
+          // player.audio.onAudioLoaded$.subscribe((audioLoadedEvent) => {
+          //   if (audioLoadedEvent?.activeAudioTrack) {
+          //     this.onSelectedAudioTrackChange$.next(audioLoadedEvent?.activeAudioTrack);
+          //   }
+          // });
+
           player.video.onVolumeChange$.subscribe((videoVolumeEvent) => {
             if (!videoVolumeEvent.muted) {
               this.onSelectedAudioTrackChange$.next(player.audio.getActiveAudioTrack()!);
@@ -54,12 +60,10 @@ export class SimpleLayoutSidecarAudioService {
             }
           });
 
-          player.audio.onSidecarAudioCreate$.subscribe((sidecarAudioCreateEvent) =>
-            this.loadedSidecarAudios.update((previous) => [...previous, sidecarAudioCreateEvent.createdSidecarAudioState.audioTrack])
-          );
+          player.audio.onSidecarAudioLoaded$.subscribe((sidecarAudioLoadedEvent) => this.loadedSidecarAudios.update((previous) => [...previous, sidecarAudioLoadedEvent.sidecarAudioState.audioTrack]));
 
           player.audio.onSidecarAudioRemove$.subscribe((sidecarAudioRemoveEvent) =>
-            this.loadedSidecarAudios.update((previous) => previous.filter((track) => track !== sidecarAudioRemoveEvent.removedSidecarAudio.audioTrack))
+            this.loadedSidecarAudios.update((previous) => previous.filter((track) => track !== sidecarAudioRemoveEvent.sidecarAudioState.audioTrack))
           );
         } else {
           this.loadedSidecarAudios.update(() => []);
@@ -117,9 +121,10 @@ export class SimpleLayoutSidecarAudioService {
           result$.next(true);
           result$.complete();
         },
-        error: () => {
+        error: (e) => {
           this.removeSidecarAudio(sidecarAudio);
           this.toastService.show({message: 'Sidecar load failed', type: 'error', duration: 5000});
+          console.error(e);
           result$.next(false);
           result$.complete();
         },

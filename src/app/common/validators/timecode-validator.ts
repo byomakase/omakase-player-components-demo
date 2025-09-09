@@ -17,12 +17,14 @@
 import {AbstractControl, ValidationErrors, ValidatorFn} from '@angular/forms';
 
 /**
+ * Returns a form validation function that validates timecode based on provided frame rate
+ * and drop frame
  *
  * @param {number | undefined} framerate
  * @param {boolean} dropFrame
  * @returns {ValidationErrors | null}
  */
-export function timecodeValidator(framerate: number | undefined, dropFrame = false): ValidatorFn {
+export function timecodeValidator(framerate: number | undefined, dropFrame = false, isAudio = false): ValidatorFn {
   return (control: AbstractControl<string>): ValidationErrors | null => {
     let valid = true;
 
@@ -30,12 +32,12 @@ export function timecodeValidator(framerate: number | undefined, dropFrame = fal
       return null;
     }
 
-    const lastDelimiter = dropFrame ? ';' : ':';
+    const lastDelimiter = isAudio ? '.' : dropFrame ? ';' : ':';
 
     if (control.value.at(-3) !== lastDelimiter) {
       valid = false;
     } else {
-      const splitTimecode = control.value.split(/[:;]/).map((el) => Number.parseInt(el));
+      const splitTimecode = control.value.split(/[:;.]/).map((el) => Number.parseInt(el));
 
       if (splitTimecode.length !== 4 || splitTimecode.includes(NaN)) {
         valid = false;

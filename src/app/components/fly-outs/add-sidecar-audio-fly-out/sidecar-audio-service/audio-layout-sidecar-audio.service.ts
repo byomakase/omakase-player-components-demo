@@ -56,12 +56,10 @@ export class AudioLayoutSidecarAudioService extends AbstractSidecarAudioService 
             }
           });
 
-          player.audio.onSidecarAudioCreate$.subscribe((sidecarAudioCreateEvent) =>
-            this.loadedSidecarAudios.update((previous) => [...previous, sidecarAudioCreateEvent.createdSidecarAudioState.audioTrack])
-          );
+          player.audio.onSidecarAudioLoaded$.subscribe((sidecarAudioLoadedEvent) => this.loadedSidecarAudios.update((previous) => [...previous, sidecarAudioLoadedEvent.sidecarAudioState.audioTrack]));
 
           player.audio.onSidecarAudioRemove$.subscribe((sidecarAudioRemoveEvent) =>
-            this.loadedSidecarAudios.update((previous) => previous.filter((track) => track !== sidecarAudioRemoveEvent.removedSidecarAudio.audioTrack))
+            this.loadedSidecarAudios.update((previous) => previous.filter((track) => track !== sidecarAudioRemoveEvent.sidecarAudioState.audioTrack))
           );
         } else {
           this.loadedSidecarAudios.update(() => []);

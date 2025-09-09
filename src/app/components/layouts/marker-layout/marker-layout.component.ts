@@ -14,12 +14,11 @@
  * limitations under the License.
  */
 
-import {Component, CUSTOM_ELEMENTS_SCHEMA, HostListener, inject, OnDestroy, signal} from '@angular/core';
+import {Component, CUSTOM_ELEMENTS_SCHEMA, effect, HostListener, inject, OnDestroy, signal} from '@angular/core';
 import {PlayerComponent} from '../../player/player.component';
 import {MarkerTrack, MarkerTrackService} from '../../fly-outs/add-markers-fly-out/marker-track.service';
-import {MarkerTrackSelectComponent} from './marker-track-select.component';
 import {IconDirective} from '../../../common/icon/icon.directive';
-import {MarkerApi, MarkerTrackApi, MomentMarker, MomentObservation, PeriodMarker, PeriodObservation} from '@byomakase/omakase-player';
+import {MarkerApi, MarkerTrackApi, MomentMarker, MomentObservation, OmakaseDropdown, OmakaseDropdownList, OmakaseDropdownToggle, PeriodMarker, PeriodObservation} from '@byomakase/omakase-player';
 import {PlayerService} from '../../player/player.service';
 import {filter, skip, Subject, take, takeUntil} from 'rxjs';
 import {CueUtil} from '../../../common/util/cue-util';
@@ -27,26 +26,26 @@ import {MarkerListComponent} from '../../../common/marker-list/marker-list.compo
 import {toObservable} from '@angular/core/rxjs-interop';
 import {ColorService} from '../../../common/services/color.service';
 import {MarkerShortcutUtil} from '../../../common/util/marker-shortcut-util';
+import {MarkerTrackSelectComponent} from '../../../common/controls/marker-track-select/marker-track-select.component';
+import {OmakaseDropdownListItem} from '@byomakase/omakase-player/dist/components/omakase-dropdown-list';
+import {StringUtil} from '../../../common/util/string-util';
 
 @Component({
   selector: 'app-marker-layout',
-  imports: [PlayerComponent, MarkerTrackSelectComponent, IconDirective, MarkerListComponent],
+  imports: [PlayerComponent, IconDirective, MarkerListComponent],
   host: {'class': 'marker-layout'},
   schemas: [CUSTOM_ELEMENTS_SCHEMA],
   template: `
     <div class="left-side">
       <div class="player-wrapper">
         <app-player></app-player>
-        <template id="omakase-media-chrome">
+        <template id="marker-select-slot">
           <media-control-bar>
             <omakase-marker-bar></omakase-marker-bar>
             <omakase-time-range></omakase-time-range>
           </media-control-bar>
         </template>
       </div>
-      @if(markerTrackService.markerTracks().length > 1) {
-      <app-marker-track-select />
-      }
     </div>
     <div class="right-side">
       @if (renderedMarkerTrack()) {
@@ -57,6 +56,17 @@ import {MarkerShortcutUtil} from '../../../common/util/marker-shortcut-util';
 
       }
     </div>
+
+    <template id="omakase-chroming-marker-track-select">
+      <omakase-dropdown alignment="right" slot="dropdown-container" id="marker-track-dropdown">
+        <omakase-dropdown-list type="radio" title="MARKER TRACKS" width="100" class="marker-track-dropdown-list" id="marker-track-dropdown-list"> </omakase-dropdown-list>
+      </omakase-dropdown>
+      <omakase-dropdown-toggle slot="end-container" class="marker-track-dropdown-toggle" dropdown="marker-track-dropdown">
+        <media-chrome-button class="media-chrome-button">
+          <span></span>
+        </media-chrome-button>
+      </omakase-dropdown-toggle>
+    </template>
   `,
 })
 export class MarkerLayoutComponent implements OnDestroy {
@@ -79,6 +89,41 @@ export class MarkerLayoutComponent implements OnDestroy {
   }
 
   constructor() {
+    effect(() => {
+      const dropdownOptions: OmakaseDropdownListItem[] = this.markerTrackService.markerTracks().map((markerTrack) => {
+        return {
+          value: markerTrack.id,
+          label: markerTrack.label ?? StringUtil.leafUrlToken(markerTrack.src),
+          active: markerTrack.id === this.markerTrackService.activeMarkerTrack()?.id,
+        };
+      });
+
+      this.playerService.onCreated$
+        .pipe(
+          filter((p) => !!p),
+          takeUntil(this.destroyed$),
+          takeUntil(this.markerTrack$.pipe(skip(1)))
+        )
+        .subscribe((player) => {
+          player.video.onVideoLoaded$
+            .pipe(
+              filter((p) => !!p),
+              takeUntil(this.destroyed$),
+              takeUntil(this.markerTrack$.pipe(skip(1)))
+            )
+            .subscribe(() => {
+              const dropdown = this.playerService.omakasePlayer!.getPlayerChromingElement<OmakaseDropdownList>('#marker-track-dropdown-list');
+              const dropdownToggle = this.playerService.omakasePlayer!.getPlayerChromingElement<OmakaseDropdownToggle>('.marker-track-dropdown-toggle');
+
+              dropdown.setOptions(dropdownOptions);
+              if (dropdownOptions.length === 0) {
+                dropdownToggle.setAttribute('disabled', '');
+              } else {
+                dropdownToggle.removeAttribute('disabled');
+              }
+            });
+        });
+    });
     this.markerTrack$.subscribe((markerTrack) => {
       if (!markerTrack) {
         this.renderedMarkerTrack()?.destroy();
@@ -109,6 +154,28 @@ export class MarkerLayoutComponent implements OnDestroy {
             });
         });
     });
+
+    this.playerService.onCreated$
+      .pipe(
+        filter((p) => !!p),
+        takeUntil(this.destroyed$)
+      )
+      .subscribe((player) => {
+        player.video.onVideoLoaded$
+          .pipe(
+            filter((p) => !!p),
+            takeUntil(this.destroyed$)
+          )
+          .subscribe(() => {
+            const dropdown = this.playerService.omakasePlayer!.getPlayerChromingElement<OmakaseDropdownList>('#marker-track-dropdown-list');
+            dropdown.selectedOption$.pipe(takeUntil(this.destroyed$)).subscribe((dropdownItem) => {
+              console.log(dropdownItem);
+              if (dropdownItem) {
+                this.markerTrackService.activeMarkerTrack.set(this.markerTrackService.markerTracks().find((markerTrack) => markerTrack.id === dropdownItem.value));
+              }
+            });
+          });
+      });
   }
 
   private createMarkerTrack() {

@@ -30,6 +30,8 @@ import {LayoutService} from '../../layout-menu/layout.service';
 import {SidecarAudioService} from '../add-sidecar-audio-fly-out/sidecar-audio-service/sidecar-audio.service';
 import {CheckboxComponent} from '../../../common/controls/checkbox/checkbox.component';
 import {MarkerTrackService} from '../add-markers-fly-out/marker-track.service';
+import {StringUtil} from '../../../common/util/string-util';
+import {ObservationTrackService} from '../add-observation-track-fly-out/observation-track.service';
 
 const nonFractionFrameRates = ['24', '25', '50', '60', '23.98'];
 const urlRegex = /[-a-zA-Z0-9@:%._\+~#=]{1,256}\.[a-zA-Z0-9()]{1,6}\b([-a-zA-Z0-9()@:%_\+.~#?&//=]*)/;
@@ -50,7 +52,7 @@ const urlRegex = /[-a-zA-Z0-9@:%._\+~#=]{1,256}\.[a-zA-Z0-9()]{1,6}\b([-a-zA-Z0-
         <div class="input-wrapper">
           <div class="input-tooltip">
             <input formControlName="url" type="text" placeholder="URL" />
-            <i appIcon="question" ngbTooltip="Specify the URL of an M3U8 or Progressive MP4" placement="top"></i>
+            <i appIcon="question" ngbTooltip="Specify the URL of an M3U8, Progressive MP4 or audio source (.aac, .mp3 or .wav)" placement="top"></i>
           </div>
           @if(form.controls.url.hasError('forbiddenName') && form.controls.url.value !== '') {}
         </div>
@@ -90,8 +92,13 @@ const urlRegex = /[-a-zA-Z0-9@:%._\+~#=]{1,256}\.[a-zA-Z0-9()]{1,6}\b([-a-zA-Z0-
         @if(sidecarAudioService.sidecarAudios().length || sidecarTextService.sidecarTexts().length || markerTrackService.markerTracks().length) {
         <div class="input-wrapper input-wrapper-no-margin">
           <input hidden formControlName="removeAllSidecars" type="checkbox" />
-          <app-checkbox [checked]="form.controls.removeAllSidecars.value ?? undefined" (clicked)="toggleRemoveAllSidecars()" />
-          <label class="input-label">Remove all sidecars</label>
+          <app-checkbox
+            [className]="form.controls.removeAllSidecars.disabled ? 'disabled' : ''"
+            [disabled]="form.controls.removeAllSidecars.disabled"
+            [checked]="form.controls.removeAllSidecars.value ?? undefined"
+            (clicked)="toggleRemoveAllSidecars()"
+          />
+          <label [className]="form.controls.removeAllSidecars.disabled ? 'disabled' : ''" class="input-label">Remove all sidecars</label>
         </div>
         }
 
@@ -123,6 +130,7 @@ export class AddMainMediaFlyOut implements OnInit {
   public sidecarAudioService = inject(SidecarAudioService);
   public sidecarTextService = inject(SidecarTextService);
   public markerTrackService = inject(MarkerTrackService);
+  private observationTrackService = inject(ObservationTrackService);
 
   public frameRates = ['24', '25', '50', '60', '23.98', '29.97', '59.94'];
   public dropFrameOptions = [
@@ -136,6 +144,16 @@ export class AddMainMediaFlyOut implements OnInit {
   ngOnInit(): void {
     this.form.controls.url.valueChanges.subscribe(() => {
       this.resolveIsLoadDisabled();
+      if (this.isMainMediaAudio()) {
+        this.form.controls.frameRate.disable();
+        this.form.controls.dropFrame.disable();
+        this.form.controls.removeAllSidecars.setValue(true);
+        this.form.controls.removeAllSidecars.disable();
+      } else {
+        this.form.controls.frameRate.enable();
+        this.form.controls.frameRate.enable();
+        this.form.controls.removeAllSidecars.enable();
+      }
     });
 
     this.form.controls.frameRate.valueChanges.subscribe((frameRate) => {
@@ -157,7 +175,8 @@ export class AddMainMediaFlyOut implements OnInit {
         this.reformatTimecode(dropFrame ?? false);
       }
       let frameRate = this.form.controls.frameRate.value != null ? Number.parseFloat(this.form.controls.frameRate.value) : undefined;
-      this.form.controls.ffom.setValidators([timecodeValidator(frameRate, this.form.controls.dropFrame.value ?? false)]);
+      frameRate = this.isMainMediaAudio() ? 100 : frameRate;
+      this.form.controls.ffom.setValidators([timecodeValidator(frameRate, this.form.controls.dropFrame.value ?? false, this.isMainMediaAudio())]);
       this.form.controls.ffom.updateValueAndValidity();
       this.resolveIsLoadDisabled();
     });
@@ -184,11 +203,15 @@ export class AddMainMediaFlyOut implements OnInit {
     const dropFrame = this.form.controls.dropFrame.value;
     const ffom = this.form.controls.ffom.value;
 
+    const isAudio = this.isMainMediaAudio();
+
     const videoLoadOptions: VideoLoadOptions = {};
-    if (dropFrame !== null) {
-      videoLoadOptions.dropFrame = dropFrame;
+    if (!isAudio) {
+      if (dropFrame !== null) {
+        videoLoadOptions.dropFrame = dropFrame;
+      }
+      videoLoadOptions.frameRate = frameRate;
     }
-    videoLoadOptions.frameRate = frameRate;
 
     if (ffom && ffom !== '') {
       videoLoadOptions.ffom = ffom;
@@ -198,8 +221,8 @@ export class AddMainMediaFlyOut implements OnInit {
     const sidecarAudioTracks = this.playerService.omakasePlayer?.audio.getSidecarAudioTracks() ?? [];
     const sidecarTexts = this.sidecarTextService.sidecarTexts();
 
-    if (this.playerService.omakasePlayer === undefined) {
-      const config = this.layoutService.playerConfiguration;
+    if (this.playerService.omakasePlayer === undefined || isAudio) {
+      const config = this.layoutService.getPlayerConfiguration(isAudio);
       this.playerService.create(config);
     }
 
@@ -212,6 +235,7 @@ export class AddMainMediaFlyOut implements OnInit {
         if (this.form.controls.removeAllSidecars.value === true) {
           // important to do beforehand since the markers are not reloaded and are not implicitly deleted on video reload
           this.markerTrackService.removeAllMarkerTracks();
+          this.observationTrackService.removeAllObservationTracks();
         }
         player.loadVideo(url, videoLoadOptions).subscribe({
           next: () => {
@@ -251,6 +275,9 @@ export class AddMainMediaFlyOut implements OnInit {
    * Displays initial timecode for first frame of media based on drop frame
    */
   displayInitialTimecode() {
+    if (this.isMainMediaAudio()) {
+      this.form.controls.ffom.setValue('00:00:00.00');
+    }
     if (this.form.controls.ffom.value === '') {
       if (this.form.controls.dropFrame.value) {
         this.form.controls.ffom.setValue('00:00:00;00');
@@ -267,7 +294,9 @@ export class AddMainMediaFlyOut implements OnInit {
    */
   reformatTimecode(isDropFrame: boolean) {
     const value = this.form.controls.ffom.value!;
-    if (isDropFrame && this.form.controls.ffom.valid) {
+    if (this.isMainMediaAudio()) {
+      this.form.controls.ffom.setValue(value.slice(0, -3) + '.' + value.slice(-2));
+    } else if (isDropFrame && this.form.controls.ffom.valid) {
       this.form.controls.ffom.setValue(value.slice(0, -3) + ';' + value.slice(-2));
     } else if (this.form.controls.ffom.valid) {
       this.form.controls.ffom.setValue(value.slice(0, -3) + ':' + value.slice(-2));
@@ -291,5 +320,16 @@ export class AddMainMediaFlyOut implements OnInit {
     if (!this.isLoadDisabled()) {
       this.load();
     }
+  }
+
+  private isMainMediaAudio() {
+    const url = this.form.controls.url.value;
+    const filename = StringUtil.leafUrlToken(url ?? '');
+
+    if (StringUtil.isAudioFile(filename)) {
+      return true;
+    }
+
+    return false;
   }
 }

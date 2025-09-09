@@ -12,4 +12,5 @@ export abstract class AbstractPlayerService {
 
   abstract get isReloading(): boolean;
   abstract get omakasePlayer(): OmakasePlayer | undefined;
+  abstract get isMainMediaAudio(): boolean | undefined;
 }

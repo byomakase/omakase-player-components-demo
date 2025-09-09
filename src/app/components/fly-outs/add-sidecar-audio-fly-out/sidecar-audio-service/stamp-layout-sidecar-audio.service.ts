@@ -20,6 +20,7 @@ import {filter, Subject, take, takeUntil} from 'rxjs';
 import {ToastService} from '../../../../common/toast/toast.service';
 import {StringUtil} from '../../../../common/util/string-util';
 import {StampLayoutService} from '../../../layouts/stamp-layout/stamp-layout.service';
+import {PlayerChromingTheme} from '@byomakase/omakase-player';
 
 export type SidecarAudio = Partial<OmpAudioTrack> & {src: string};
 
@@ -75,7 +76,7 @@ export class StampLayoutSidecarAudioService {
         loadVideoIfPresent: true,
         isMainPlayer: false,
         playerChroming: {
-          theme: 'DEFAULT',
+          theme: PlayerChromingTheme.Default,
           watermark: watermark,
         },
       })

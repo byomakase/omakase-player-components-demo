@@ -183,7 +183,7 @@ export class AudioLayoutComponent implements OnInit, OnDestroy, AfterViewInit {
           });
       }
 
-      merge(player.audio.onSidecarAudioChange$, player.audio.onSidecarAudioRemove$, player.audio.onSidecarAudioCreate$)
+      merge(player.audio.onSidecarAudioChange$, player.audio.onSidecarAudioRemove$, player.audio.onSidecarAudioLoaded$)
         .pipe(takeUntil(this._destroyed$))
         .subscribe(() => {
           const activeSidecarIds = player.audio.getActiveSidecarAudioTracks().map((track) => track.id);

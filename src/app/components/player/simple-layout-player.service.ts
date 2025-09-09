@@ -16,13 +16,14 @@
 
 import {Injectable, signal} from '@angular/core';
 import {OmakasePlayer, OmakasePlayerConfig} from '@byomakase/omakase-player';
-import {BehaviorSubject, Observable} from 'rxjs';
+import {BehaviorSubject, filter, Observable, take} from 'rxjs';
 import {AbstractPlayerService} from './player.service.abstract';
 @Injectable({
   providedIn: 'root',
 })
 export class SimpleLayoutPlayerService extends AbstractPlayerService {
   private _omakasePlayer: OmakasePlayer | undefined;
+  private _isMainMediaAudio: boolean | undefined;
 
   public onCreated$: BehaviorSubject<OmakasePlayer | undefined> = new BehaviorSubject<OmakasePlayer | undefined>(undefined);
   public thumbnailTrackUrl = signal<string | undefined>(undefined);
@@ -39,8 +40,22 @@ export class SimpleLayoutPlayerService extends AbstractPlayerService {
    * @param {Partial<OmakasePlayerConfig>} config
    */
   create(config?: Partial<OmakasePlayerConfig>) {
+    console.log(config);
     this.destroy();
     this._omakasePlayer = new OmakasePlayer(config);
+
+    this._omakasePlayer.video.onVideoLoaded$.subscribe((videoLoadedEvent) => {
+      if (!videoLoadedEvent) {
+        this._isMainMediaAudio = undefined;
+        return;
+      }
+      if (videoLoadedEvent.video.protocol === 'audio') {
+        this._isMainMediaAudio = true;
+      } else {
+        this._isMainMediaAudio = false;
+      }
+    });
+
     this.onCreated$.next(this._omakasePlayer);
     //@ts-ignore
     window.omp = this._omakasePlayer;
@@ -100,5 +115,9 @@ export class SimpleLayoutPlayerService extends AbstractPlayerService {
    */
   get omakasePlayer() {
     return this._omakasePlayer;
+  }
+
+  get isMainMediaAudio() {
+    return this._isMainMediaAudio;
   }
 }

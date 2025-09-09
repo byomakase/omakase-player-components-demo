@@ -46,6 +46,7 @@ export class LayoutMenu {
     'marker': 'Marker Layout',
     'timeline': 'Timeline Layout',
     'stamp': 'Stamp Layout',
+    'chromeless': 'Chromeless Layout',
   };
 
   constructor() {

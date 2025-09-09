@@ -21,8 +21,8 @@ import {MarkerTrackApi, MomentMarker, PeriodMarker} from '@byomakase/omakase-pla
 import {Subject, filter, take, takeUntil, skip} from 'rxjs';
 import {MarkerTrackService, MarkerTrack} from '../../fly-outs/add-markers-fly-out/marker-track.service';
 import {PlayerService} from '../../player/player.service';
-import {MarkerTrackSelectComponent} from '../marker-layout/marker-track-select.component';
 import {ColorService} from '../../../common/services/color.service';
+import {MarkerTrackSelectComponent} from '../../../common/controls/marker-track-select/marker-track-select.component';
 
 @Component({
   selector: 'app-simple-layout',

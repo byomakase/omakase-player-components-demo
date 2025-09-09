@@ -72,9 +72,9 @@ export class StampLayoutService {
     const result$ = new Subject<string>();
 
     let finalConfig: StampPlayerConfig = {
-      ...this.layoutService.playerConfiguration,
+      ...this.layoutService.getPlayerConfiguration(),
       ...config,
-      playerChroming: this.layoutService.playerConfiguration.playerChroming,
+      playerChroming: this.layoutService.getPlayerConfiguration().playerChroming,
     };
 
     if (config.playerChroming) {

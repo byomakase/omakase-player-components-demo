@@ -28,6 +28,9 @@ import {IconCheckboxChecked} from './svg/icon-checkbox-checked';
 import {IconCheckboxUnchecked} from './svg/icon-checkbox-unchecked';
 import {IconArrowRight} from './svg/icon-arrow-right';
 import {IconArrowLeft} from './svg/icon-arrow-left';
+import {IconObservation} from './svg/icon-observation';
+import {IconCheckboxCheckedDisabled} from './svg/icon-checkbox-checked-disabled';
+import {IconCheckboxUncheckedDisabled} from './svg/icon-checkbox-unchecked-disabled';
 
 export type IconName =
   | 'omakase-logo'
@@ -41,8 +44,11 @@ export type IconName =
   | 'menu'
   | 'checkbox-checked'
   | 'checkbox-unchecked'
+  | 'checkbox-checked-disabled'
+  | 'checkbox-unchecked-disabled'
   | 'arrow-right'
-  | 'arrow-left';
+  | 'arrow-left'
+  | 'observation';
 
 @Injectable({
   providedIn: 'root',
@@ -60,8 +66,11 @@ export class IconService {
     'menu': IconMenu,
     'checkbox-checked': IconCheckboxChecked,
     'checkbox-unchecked': IconCheckboxUnchecked,
+    'checkbox-checked-disabled': IconCheckboxCheckedDisabled,
+    'checkbox-unchecked-disabled': IconCheckboxUncheckedDisabled,
     'arrow-right': IconArrowRight,
     'arrow-left': IconArrowLeft,
+    'observation': IconObservation,
   };
 
   constructor() {}

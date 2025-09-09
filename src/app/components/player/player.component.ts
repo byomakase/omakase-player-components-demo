@@ -48,7 +48,7 @@ export class PlayerComponent implements OnInit {
   }
 
   private resolveHelpMenuSupport() {
-    const theme = this.layoutService.playerConfiguration.playerChroming?.theme;
+    const theme = this.layoutService.getPlayerConfiguration(this.playerService.isMainMediaAudio!).playerChroming?.theme;
     if (theme === 'CHROMELESS' || theme === 'STAMP') {
       return false;
     }

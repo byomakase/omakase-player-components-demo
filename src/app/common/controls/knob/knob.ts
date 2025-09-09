@@ -205,6 +205,7 @@ class KnobControl extends HTMLElement {
           height: ${fullSize}px;
           position: relative;
           user-select: none;
+          cursor: grab;
         }
         .knob {
           width: ${this.radius * 2}px;

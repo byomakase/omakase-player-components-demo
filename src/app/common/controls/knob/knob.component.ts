@@ -34,6 +34,7 @@ import {Component, CUSTOM_ELEMENTS_SCHEMA, ElementRef, ViewChild, AfterViewInit,
       [attr.max-angle]="maxAngle()"
       [attr.value]="value()"
       [attr.rotation-speed]="rotationSpeed()"
+      [attr.radius]="radius()"
     >
     </knob-control>
   `,
@@ -85,6 +86,9 @@ export class KnobWrapperComponent implements AfterViewInit, OnChanges, OnDestroy
     }
     if (changes['value'] && this.value !== undefined) {
       this.knob.value = this.value;
+    }
+    if (changes['radius'] && this.value !== undefined) {
+      this.knob.setAttribute('radius', this.value);
     }
   }
 

@@ -1,6 +1,16 @@
-export type Layout = 'simple' | 'audio' | 'marker' | 'timeline' | 'stamp';
+export type Layout = 'simple' | 'audio' | 'marker' | 'timeline' | 'stamp' | 'chromeless';
 
-export type SidecarType = 'audio' | 'text' | 'marker' | 'thumbnail';
+export type SidecarType = 'audio' | 'text' | 'marker' | 'thumbnail' | 'observation';
+
+export type ChartType = 'bar_chart' | 'line_chart' | 'led_chart';
+
+export interface TrackVisualization {
+  chart_type?: ChartType;
+  read_only?: boolean;
+  color?: string;
+  y_min?: number;
+  y_max?: number;
+}
 
 export interface MainMedia {
   id?: string;
@@ -21,6 +31,8 @@ export interface SidecarMedia {
 export interface Presentation {
   layouts: Layout[];
   read_only?: boolean;
+  track_visualization?: Record<string, TrackVisualization>;
+  disable_media_fly_outs?: boolean;
 }
 
 export interface Media {

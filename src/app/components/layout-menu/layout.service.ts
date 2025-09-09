@@ -18,19 +18,75 @@ import {Injectable} from '@angular/core';
 import {OmakasePlayerConfig} from '@byomakase/omakase-player';
 import {BehaviorSubject, Subject} from 'rxjs';
 import {Layout} from '../../model/session.model';
+import {ControlBarVisibility, DefaultThemeControl, DefaultThemeFloatingControl, PlayerChromingTheme, StampTimeFormat, WatermarkVisibility} from '@byomakase/omakase-player/';
 
 @Injectable({
   providedIn: 'root',
 })
 export class LayoutService {
+  private playerAudioConfigs: Record<Layout, OmakasePlayerConfig> = {
+    'simple': {
+      playerHTMLElementId: 'omakase-player',
+      playerChroming: {
+        theme: PlayerChromingTheme.Audio,
+        styleUrl: '/assets/css/omakase-player.css',
+      },
+    },
+    'audio': {
+      playerHTMLElementId: 'omakase-player',
+      playerChroming: {
+        theme: PlayerChromingTheme.Audio,
+        styleUrl: '/assets/css/omakase-player.css',
+      },
+    },
+    'marker': {
+      playerHTMLElementId: 'omakase-player',
+      playerChroming: {
+        theme: PlayerChromingTheme.Audio,
+        styleUrl: '/assets/css/omakase-player.css',
+
+        themeConfig: {
+          htmlTemplateId: 'omakase-chroming-marker-track-select',
+        },
+      },
+    },
+
+    'timeline': {
+      playerHTMLElementId: 'omakase-player',
+      playerChroming: {
+        theme: PlayerChromingTheme.Audio,
+        styleUrl: '/assets/css/omakase-player.css',
+      },
+    },
+    'stamp': {
+      playerHTMLElementId: 'omakase-player',
+      audioPlayMode: 'single',
+      playerChroming: {
+        theme: PlayerChromingTheme.Stamp,
+        themeConfig: {
+          timeFormat: StampTimeFormat.Timecode,
+        },
+        watermarkVisibility: WatermarkVisibility.AutoHide,
+      },
+    },
+    'chromeless': {
+      playerHTMLElementId: 'omakase-player',
+      audioPlayMode: 'single',
+      playerChroming: {
+        theme: PlayerChromingTheme.Chromeless,
+      },
+    },
+  };
   private playerConfigs: Record<Layout, OmakasePlayerConfig> = {
     'simple': {
       playerHTMLElementId: 'omakase-player',
       audioPlayMode: 'single',
       playerChroming: {
-        theme: 'DEFAULT',
+        theme: PlayerChromingTheme.Default,
+        styleUrl: '/assets/css/omakase-player.css',
+
         themeConfig: {
-          controlBarVisibility: 'ENABLED',
+          controlBarVisibility: ControlBarVisibility.Enabled,
         },
       },
     },
@@ -38,11 +94,25 @@ export class LayoutService {
       playerHTMLElementId: 'omakase-player',
       audioPlayMode: 'multiple',
       playerChroming: {
-        theme: 'DEFAULT',
+        theme: PlayerChromingTheme.Default,
+        styleUrl: '/assets/css/omakase-player.css',
         themeConfig: {
-          controlBarVisibility: 'ENABLED',
-          controlBar: ['BITC', 'CAPTIONS', 'DETACH', 'FRAME_BACKWARD', 'FRAME_FORWARD', 'FULLSCREEN', 'PLAY', 'PLAYBACK_RATE', 'SCRUBBER', 'TEN_FRAMES_BACKWARD', 'TEN_FRAMES_FORWARD', 'VOLUME'],
-          floatingControls: ['TRACKSELECTOR', 'HELP_MENU', 'PLAYBACK_CONTROLS'],
+          controlBarVisibility: ControlBarVisibility.Enabled,
+          controlBar: [
+            DefaultThemeControl.Bitc,
+            DefaultThemeControl.Captions,
+            DefaultThemeControl.Detach,
+            DefaultThemeControl.FrameBackward,
+            DefaultThemeControl.FrameForward,
+            DefaultThemeControl.Fullscreen,
+            DefaultThemeControl.Play,
+            DefaultThemeControl.PlaybackRate,
+            DefaultThemeControl.Scrubber,
+            DefaultThemeControl.TenFramesBackward,
+            DefaultThemeControl.TenFramesForward,
+            DefaultThemeControl.Volume,
+          ],
+          floatingControls: [DefaultThemeFloatingControl.Trackselector, DefaultThemeFloatingControl.HelpMenu, DefaultThemeFloatingControl.PlaybackControls],
           trackSelectorAutoClose: false,
         },
       },
@@ -51,9 +121,11 @@ export class LayoutService {
       playerHTMLElementId: 'omakase-player',
       audioPlayMode: 'single',
       playerChroming: {
-        theme: 'DEFAULT',
+        theme: PlayerChromingTheme.Default,
+        styleUrl: '/assets/css/omakase-player.css',
         themeConfig: {
-          controlBarVisibility: 'ENABLED',
+          controlBarVisibility: ControlBarVisibility.Enabled,
+          htmlTemplateId: 'omakase-chroming-marker-track-select',
         },
       },
     },
@@ -61,9 +133,11 @@ export class LayoutService {
       playerHTMLElementId: 'omakase-player',
       audioPlayMode: 'single',
       playerChroming: {
-        theme: 'DEFAULT',
+        theme: PlayerChromingTheme.Default,
+        styleUrl: '/assets/css/omakase-player.css',
+
         themeConfig: {
-          controlBarVisibility: 'ENABLED',
+          controlBarVisibility: ControlBarVisibility.Enabled,
         },
       },
     },
@@ -71,11 +145,18 @@ export class LayoutService {
       playerHTMLElementId: 'omakase-player',
       audioPlayMode: 'single',
       playerChroming: {
-        theme: 'STAMP',
+        theme: PlayerChromingTheme.Stamp,
         themeConfig: {
-          timeFormat: 'TIMECODE',
+          timeFormat: StampTimeFormat.Timecode,
         },
-        watermarkVisibility: 'AUTO_HIDE',
+        watermarkVisibility: WatermarkVisibility.AutoHide,
+      },
+    },
+    'chromeless': {
+      playerHTMLElementId: 'omakase-player',
+      audioPlayMode: 'single',
+      playerChroming: {
+        theme: PlayerChromingTheme.Chromeless,
       },
     },
   };
@@ -84,7 +165,8 @@ export class LayoutService {
   public onLayoutInitialized$: Subject<boolean> = new BehaviorSubject<boolean>(false);
 
   private _layout: Layout = 'simple';
-  private _layouts: Layout[] = ['simple', 'audio', 'marker', 'timeline', 'stamp'];
+  private _layouts: Layout[] = ['simple', 'audio', 'marker', 'timeline', 'stamp', 'chromeless'];
+  private _overridableLayouts = ['simple', 'audio', 'marker', 'timeline'];
 
   public set layout(value: Layout) {
     this._layout = value;
@@ -113,7 +195,10 @@ export class LayoutService {
   /**
    * Player configuration for active layout
    */
-  public get playerConfiguration() {
+  public getPlayerConfiguration(isMainMediaAudio = false): OmakasePlayerConfig {
+    if (isMainMediaAudio && this._overridableLayouts.includes(this._layout)) {
+      return this.playerAudioConfigs[this._layout];
+    }
     return this.playerConfigs[this._layout];
   }
 

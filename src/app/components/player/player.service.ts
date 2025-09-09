@@ -104,4 +104,8 @@ export class PlayerService extends AbstractPlayerService {
   setThumbnailTrack(url: string | undefined) {
     return this.currentService.setThumbnailTrack(url);
   }
+
+  get isMainMediaAudio() {
+    return this.currentService.isMainMediaAudio;
+  }
 }

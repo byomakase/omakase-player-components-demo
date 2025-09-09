@@ -26,6 +26,7 @@ import {StringUtil} from '../../common/util/string-util';
 export class StampLayoutPlayerService extends AbstractPlayerService {
   private _omakasePlayer: OmakasePlayer | undefined;
   private _stampPlayerId: string | undefined;
+  private _isMainMediaAudio: boolean | undefined;
 
   public onCreated$: BehaviorSubject<OmakasePlayer | undefined> = new BehaviorSubject<OmakasePlayer | undefined>(undefined);
   public thumbnailTrackUrl = signal<string | undefined>(undefined);
@@ -52,6 +53,17 @@ export class StampLayoutPlayerService extends AbstractPlayerService {
     this.stampLayoutService.createStampPlayer({...config, loadVideoIfPresent: false, isMainPlayer: true}).subscribe((playerId) => {
       this._stampPlayerId = playerId;
       this._omakasePlayer = this.stampLayoutService.getPlayer(playerId);
+      this._omakasePlayer!.video.onVideoLoaded$.subscribe((videoLoadedEvent) => {
+        if (!videoLoadedEvent) {
+          this._isMainMediaAudio = undefined;
+          return;
+        }
+        if (videoLoadedEvent.videoLoadOptions?.protocol === 'audio') {
+          this._isMainMediaAudio = true;
+        } else {
+          this._isMainMediaAudio = false;
+        }
+      });
       this.onCreated$.next(this._omakasePlayer);
 
       this._omakasePlayer!.setWatermark('Main Media + Default Audio');
@@ -118,5 +130,9 @@ export class StampLayoutPlayerService extends AbstractPlayerService {
    */
   get omakasePlayer() {
     return this._omakasePlayer;
+  }
+
+  get isMainMediaAudio() {
+    return this._isMainMediaAudio;
   }
 }

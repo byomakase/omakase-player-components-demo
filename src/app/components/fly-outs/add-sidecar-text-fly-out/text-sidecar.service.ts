@@ -115,8 +115,9 @@ export class SidecarTextService {
             result$.complete();
           }
         },
-        error: () => {
+        error: (e) => {
           this.removeSidecarText(sidecarText);
+          console.error(e);
           this.createErrorToast();
         },
       });

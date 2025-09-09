@@ -24,12 +24,16 @@ import {IconDirective} from '../../icon/icon.directive';
 @Component({
   selector: 'app-checkbox',
   template: `
-    <span (click)="clicked.emit()">
-      @if( checked()) {
+    <span (click)="onClick()">
+      @if(disabled()) {@if( checked()) {
+      <i appIcon="checkbox-checked-disabled"> </i>
+      } @else {
+      <i appIcon="checkbox-unchecked-disabled"> </i>
+      }} @else { @if( checked()) {
       <i appIcon="checkbox-checked"> </i>
       } @else {
       <i appIcon="checkbox-unchecked"> </i>
-      }
+      }}
     </span>
   `,
   standalone: true,
@@ -37,5 +41,14 @@ import {IconDirective} from '../../icon/icon.directive';
 })
 export class CheckboxComponent {
   checked = input<boolean>();
+  disabled = input<boolean>();
   clicked = output<void>();
+
+  onClick() {
+    if (this.disabled()) {
+      return;
+    }
+
+    this.clicked.emit();
+  }
 }

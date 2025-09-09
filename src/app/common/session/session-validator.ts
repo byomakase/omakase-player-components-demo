@@ -12,13 +12,25 @@ const mainMediaSchema = z.object({
 const sidecarMediaSchema = z.object({
   id: z.string().optional(),
   label: z.string().optional(),
-  type: z.enum(['audio', 'text', 'marker', 'thumbnail']),
+  type: z.enum(['audio', 'text', 'marker', 'thumbnail', 'observation']),
   url: z.url(),
 });
 
-const presentationSchema = z.object({
-  layouts: z.array(z.enum(['simple', 'audio', 'marker', 'timeline', 'stamp'])),
+export const chartTypeSchema = z.enum(['bar_chart', 'line_chart', 'led_chart']);
+
+export const trackVisualizationSchema = z.object({
+  chart_type: chartTypeSchema.optional(),
   read_only: z.boolean().optional(),
+  color: z.string().optional(),
+  y_min: z.number().optional(),
+  y_max: z.number().optional(),
+});
+
+export const presentationSchema = z.object({
+  layouts: z.array(z.enum(['simple', 'audio', 'marker', 'timeline', 'stamp', 'chromeless'])),
+  read_only: z.boolean().optional(),
+  track_visualization: z.record(z.string(), trackVisualizationSchema).optional(),
+  disable_media_fly_outs: z.boolean().optional(),
 });
 
 const mediaSchema = z.object({
