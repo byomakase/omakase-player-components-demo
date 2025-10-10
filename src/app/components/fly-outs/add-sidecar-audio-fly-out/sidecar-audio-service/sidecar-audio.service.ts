@@ -110,6 +110,9 @@ export class SidecarAudioService extends AbstractSidecarAudioService {
       case 'chromeless':
         this.currentService = this.injector.get(SimpleLayoutSidecarAudioService);
         break;
+      case 'editorial':
+        this.currentService = this.injector.get(SimpleLayoutSidecarAudioService);
+        break;
       default:
         throw new Error(`Unsupported layout: ${layout}`);
     }

@@ -1,5 +1,4 @@
 /* You can add global styles to this file, and also import other style files */
-// @import "@byomakase/omakase-player/style/omakase-player.scss";
 
 @use "variables";
 @use "animations";
@@ -11,6 +10,8 @@
 
 @use "layouts";
 @use "color-picker";
+
+@use "@byomakase/omakase-player/style/omakase-player.scss";
 
 html,
 body {

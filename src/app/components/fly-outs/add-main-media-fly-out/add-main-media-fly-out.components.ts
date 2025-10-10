@@ -204,6 +204,7 @@ export class AddMainMediaFlyOut implements OnInit {
     const ffom = this.form.controls.ffom.value;
 
     const isAudio = this.isMainMediaAudio();
+    const isAudioLoaded = StringUtil.isAudioFile(this.playerService.omakasePlayer?.video.getVideo()?.sourceUrl ?? '');
 
     const videoLoadOptions: VideoLoadOptions = {};
     if (!isAudio) {
@@ -221,7 +222,7 @@ export class AddMainMediaFlyOut implements OnInit {
     const sidecarAudioTracks = this.playerService.omakasePlayer?.audio.getSidecarAudioTracks() ?? [];
     const sidecarTexts = this.sidecarTextService.sidecarTexts();
 
-    if (this.playerService.omakasePlayer === undefined || isAudio) {
+    if (this.playerService.omakasePlayer === undefined || isAudio !== isAudioLoaded) {
       const config = this.layoutService.getPlayerConfiguration(isAudio);
       this.playerService.create(config);
     }

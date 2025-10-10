@@ -34,6 +34,7 @@ import {Layout} from './model/session.model';
 import {TimelineLayoutComponent} from './components/layouts/timeline-layout/timeline-layout.component';
 import {StampLayoutComponent} from './components/layouts/stamp-layout/stamp-layout.component';
 import {ChromelessLayoutComponent} from './components/layouts/chromeless-layout/chromeless-layout.component';
+import {EditorialLayoutComponent} from './components/layouts/editorial-layout/editorial-layout.component';
 
 const layouts: Record<Layout, Type<any>> = {
   'simple': SimpleLayoutComponent,
@@ -42,6 +43,7 @@ const layouts: Record<Layout, Type<any>> = {
   'timeline': TimelineLayoutComponent,
   'stamp': StampLayoutComponent,
   'chromeless': ChromelessLayoutComponent,
+  'editorial': EditorialLayoutComponent,
 };
 
 @Component({

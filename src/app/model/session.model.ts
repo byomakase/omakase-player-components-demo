@@ -1,4 +1,4 @@
-export type Layout = 'simple' | 'audio' | 'marker' | 'timeline' | 'stamp' | 'chromeless';
+export type Layout = 'simple' | 'audio' | 'marker' | 'timeline' | 'stamp' | 'chromeless' | 'editorial';
 
 export type SidecarType = 'audio' | 'text' | 'marker' | 'thumbnail' | 'observation';
 

@@ -14,12 +14,8 @@
  * limitations under the License.
  */
 
-import {ClickEvent, ConfigWithOptionalStyle, SubtitlesApi, SubtitlesVttTrack, Timeline, VideoControllerApi} from '@byomakase/omakase-player';
+import {ConfigWithOptionalStyle} from '@byomakase/omakase-player';
 import {BaseGroupingLane, BaseGroupingLaneConfig} from '../base-grouping-lane';
-import {SidecarText} from '../../../../components/fly-outs/add-sidecar-text-fly-out/text-sidecar.service';
-
-import {Constants} from '../../../../constants/constants';
-import {takeUntil} from 'rxjs';
 
 export interface ObservationTrackGroupingLaneConfig extends BaseGroupingLaneConfig {}
 

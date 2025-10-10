@@ -15,7 +15,7 @@
  */
 
 import {Injectable} from '@angular/core';
-import {OmakasePlayerConfig} from '@byomakase/omakase-player';
+import {EditorialTimeFormat, OmakasePlayerConfig} from '@byomakase/omakase-player';
 import {BehaviorSubject, Subject} from 'rxjs';
 import {Layout} from '../../model/session.model';
 import {ControlBarVisibility, DefaultThemeControl, DefaultThemeFloatingControl, PlayerChromingTheme, StampTimeFormat, WatermarkVisibility} from '@byomakase/omakase-player/';
@@ -74,6 +74,13 @@ export class LayoutService {
       audioPlayMode: 'single',
       playerChroming: {
         theme: PlayerChromingTheme.Chromeless,
+      },
+    },
+    'editorial': {
+      playerHTMLElementId: 'omakase-player',
+      playerChroming: {
+        theme: PlayerChromingTheme.Audio,
+        styleUrl: '/assets/css/omakase-player.css',
       },
     },
   };
@@ -159,13 +166,25 @@ export class LayoutService {
         theme: PlayerChromingTheme.Chromeless,
       },
     },
+    'editorial': {
+      playerHTMLElementId: 'omakase-player',
+      audioPlayMode: 'single',
+      playerChroming: {
+        theme: PlayerChromingTheme.Editorial,
+        styleUrl: '/assets/css/omakase-player.css',
+
+        themeConfig: {
+          timeFormat: EditorialTimeFormat.Timecode,
+        },
+      },
+    },
   };
 
   public onLayoutChange$: BehaviorSubject<Layout> = new BehaviorSubject<Layout>('simple');
   public onLayoutInitialized$: Subject<boolean> = new BehaviorSubject<boolean>(false);
 
   private _layout: Layout = 'simple';
-  private _layouts: Layout[] = ['simple', 'audio', 'marker', 'timeline', 'stamp', 'chromeless'];
+  private _layouts: Layout[] = ['simple', 'audio', 'marker', 'timeline', 'stamp', 'chromeless', 'editorial'];
   private _overridableLayouts = ['simple', 'audio', 'marker', 'timeline'];
 
   public set layout(value: Layout) {
