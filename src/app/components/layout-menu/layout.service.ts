@@ -15,7 +15,7 @@
  */
 
 import {Injectable} from '@angular/core';
-import {EditorialTimeFormat, OmakasePlayerConfig} from '@byomakase/omakase-player';
+import {AudioVisualization, EditorialControlBarPosition, EditorialTimeFormat, OmakasePlayerConfig} from '@byomakase/omakase-player';
 import {BehaviorSubject, Subject} from 'rxjs';
 import {Layout} from '../../model/session.model';
 import {ControlBarVisibility, DefaultThemeControl, DefaultThemeFloatingControl, PlayerChromingTheme, StampTimeFormat, WatermarkVisibility} from '@byomakase/omakase-player/';
@@ -30,6 +30,9 @@ export class LayoutService {
       playerChroming: {
         theme: PlayerChromingTheme.Audio,
         styleUrl: '/assets/css/omakase-player.css',
+        themeConfig: {
+          visualization: AudioVisualization.Enabled,
+        },
       },
     },
     'audio': {
@@ -37,6 +40,9 @@ export class LayoutService {
       playerChroming: {
         theme: PlayerChromingTheme.Audio,
         styleUrl: '/assets/css/omakase-player.css',
+        themeConfig: {
+          visualization: AudioVisualization.Enabled,
+        },
       },
     },
     'marker': {
@@ -47,6 +53,7 @@ export class LayoutService {
 
         themeConfig: {
           htmlTemplateId: 'omakase-chroming-marker-track-select',
+          visualization: AudioVisualization.Enabled,
         },
       },
     },
@@ -56,6 +63,9 @@ export class LayoutService {
       playerChroming: {
         theme: PlayerChromingTheme.Audio,
         styleUrl: '/assets/css/omakase-player.css',
+        themeConfig: {
+          visualization: AudioVisualization.Enabled,
+        },
       },
     },
     'stamp': {
@@ -81,6 +91,9 @@ export class LayoutService {
       playerChroming: {
         theme: PlayerChromingTheme.Audio,
         styleUrl: '/assets/css/omakase-player.css',
+        themeConfig: {
+          visualization: AudioVisualization.Enabled,
+        },
       },
     },
   };
@@ -175,6 +188,7 @@ export class LayoutService {
 
         themeConfig: {
           timeFormat: EditorialTimeFormat.Timecode,
+          controlBarPosition: EditorialControlBarPosition.UnderVideo,
         },
       },
     },

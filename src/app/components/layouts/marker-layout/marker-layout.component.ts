@@ -169,7 +169,6 @@ export class MarkerLayoutComponent implements OnDestroy {
           .subscribe(() => {
             const dropdown = this.playerService.omakasePlayer!.getPlayerChromingElement<OmakaseDropdownList>('#marker-track-dropdown-list');
             dropdown.selectedOption$.pipe(takeUntil(this.destroyed$)).subscribe((dropdownItem) => {
-              console.log(dropdownItem);
               if (dropdownItem) {
                 this.markerTrackService.activeMarkerTrack.set(this.markerTrackService.markerTracks().find((markerTrack) => markerTrack.id === dropdownItem.value));
               }

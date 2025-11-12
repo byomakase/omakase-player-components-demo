@@ -258,7 +258,7 @@ export class AddMainMediaFlyOut implements OnInit {
                   take(1)
                 )
                 .subscribe((event) => {
-                  this.sidecarTextService.reloadAllSidecarTexts(sidecarTexts);
+                  this.sidecarTextService.reloadSidecarTexts(sidecarTexts);
                 });
             } else {
               this.sidecarAudioService.removeAllSidecarAudios();

@@ -61,8 +61,8 @@ export class SidecarAudioService extends AbstractSidecarAudioService {
   });
 
   /**
-   * Signal containing Ids of loaded sidecars for which the user didn't specify a label.
-   * Only contains fully loaded sidecars
+   * Signal containing all sidecar audios that are either loaded or being loaded into Omakase player.
+   * All of the loaded sidecars will have a label even if the user didn't specify one
    */
   public sidecarAudios = computed(() => {
     if (this.activeLayout()) {
@@ -73,8 +73,8 @@ export class SidecarAudioService extends AbstractSidecarAudioService {
   });
 
   /**
-   * Signal containing all sidecar audios that are either loaded or being loaded into Omakase player.
-   * All of the loaded sidecars will have a label even if the user didn't specify one
+   * Signal containing Ids of loaded sidecars for which the user didn't specify a label.
+   * Only contains fully loaded sidecars
    */
   public noUserLabelSidecarAudioIds = computed(() => {
     if (this.activeLayout()) {

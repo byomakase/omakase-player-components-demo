@@ -14,12 +14,17 @@
  * limitations under the License.
  */
 
-import {computed, inject, Injectable, signal} from '@angular/core';
+import {computed, inject, Injectable, Injector, signal} from '@angular/core';
 import {PlayerService} from '../../player/player.service';
 import {ToastService} from '../../../common/toast/toast.service';
 import {SubtitlesVttTrack} from '@byomakase/omakase-player';
 import {StringUtil} from '../../../common/util/string-util';
 import {Subject} from 'rxjs';
+import {AbstractSidecarTextService} from './text-sidecar.service.abstract';
+import {LayoutService} from '../../layout-menu/layout.service';
+import {Layout} from '../../../model/session.model';
+import {SimpleLayoutSidecarTextService} from './simple-layout-text-sidecar.service';
+import {StampLayoutSidecarTextService} from './stamp-layout-text-sidecar.service';
 
 export type SidecarText = Partial<SubtitlesVttTrack> & {src: string};
 export type LoadedSidecarText = SidecarText & {id: string};
@@ -27,38 +32,53 @@ export type LoadedSidecarText = SidecarText & {id: string};
 @Injectable({
   providedIn: 'root',
 })
-export class SidecarTextService {
+export class SidecarTextService extends AbstractSidecarTextService {
   private playerService = inject(PlayerService);
   private toastService = inject(ToastService);
+  private layoutService = inject(LayoutService);
+  private injector = inject(Injector);
+  private activeLayout = signal<Layout>('simple');
+  private currentService!: AbstractSidecarTextService;
+
   constructor() {
-    this.playerService.onCreated$.subscribe((player) => {
-      if (!player) {
-        this.loadedSidecarTexts.update(() => []);
-        this._pendingSidecarTexts.update(() => []);
-        this.noUserLabelSidecarTextIds.update(() => []);
-      }
+    super();
+    this.layoutService.onLayoutChange$.subscribe((layout) => {
+      this.setDelegateByLayout(layout);
+      this.activeLayout.set(layout);
     });
   }
 
   /**
    * Sidecar texts that have been successfully loaded into Omakase player
    */
-  public loadedSidecarTexts = signal<LoadedSidecarText[]>([]);
-  /**
-   * Sidcar texts that are being loaded into Omakase player
-   */
-  private _pendingSidecarTexts = signal<SidecarText[]>([]);
+  public loadedSidecarTexts = computed(() => {
+    if (this.activeLayout()) {
+      // triggers inner signal switch
+      return this.currentService.loadedSidecarTexts();
+    }
+    return [];
+  });
 
   /**
    * sidecar text ids for which the user did not provide label
    */
-  public noUserLabelSidecarTextIds = signal<string[]>([]);
+  public noUserLabelSidecarTextIds = computed(() => {
+    if (this.activeLayout()) {
+      // triggers inner signal switch
+      return this.currentService.noUserLabelSidecarTextIds();
+    }
+    return [];
+  });
 
   /**
    * All sidecar texts in the OPCD session
    */
   public sidecarTexts = computed(() => {
-    return [...this.loadedSidecarTexts(), ...this._pendingSidecarTexts()];
+    if (this.activeLayout()) {
+      // triggers inner signal switch
+      return this.currentService.sidecarTexts();
+    }
+    return [];
   });
 
   /**
@@ -67,62 +87,7 @@ export class SidecarTextService {
    * @param {SidecarText} sidecarText
    */
   public addSidecarText(sidecarText: SidecarText, showSuccessToast: boolean = true) {
-    const result$ = new Subject<boolean>();
-    this._pendingSidecarTexts.update((prev) => [...prev, sidecarText]);
-
-    let label;
-
-    if (sidecarText.label === '') {
-      label = StringUtil.leafUrlToken(sidecarText.src);
-    } else {
-      label = sidecarText.label!;
-    }
-
-    this.playerService
-      .omakasePlayer!.subtitles.createVttTrack({
-        src: sidecarText.src,
-        id: sidecarText.id ?? crypto.randomUUID(),
-        default: false,
-        label: label,
-        language: '',
-      })
-      .subscribe({
-        next: (track) => {
-          if (track) {
-            this.playerService.omakasePlayer!.subtitles.showTrack(track.id);
-
-            sidecarText.id = track.id;
-
-            this._pendingSidecarTexts.update((prev) => prev.filter((st) => st !== sidecarText));
-            this.loadedSidecarTexts.update((prev) => [...prev, sidecarText as LoadedSidecarText]);
-
-            if (sidecarText.label === '') {
-              this.noUserLabelSidecarTextIds.update((prev) => [...prev, track.id]);
-            }
-
-            sidecarText.id = track.id;
-            if (showSuccessToast) {
-              this.createSuccessToast();
-            }
-
-            result$.next(true);
-            result$.complete();
-          } else {
-            this.removeSidecarText(sidecarText);
-            this.createErrorToast();
-
-            result$.next(false);
-            result$.complete();
-          }
-        },
-        error: (e) => {
-          this.removeSidecarText(sidecarText);
-          console.error(e);
-          this.createErrorToast();
-        },
-      });
-
-    return result$;
+    return this.currentService.addSidecarText(sidecarText, showSuccessToast);
   }
 
   /**
@@ -131,34 +96,8 @@ export class SidecarTextService {
    *
    * @param {SidecarText[]} sidecarTexts
    */
-  public reloadAllSidecarTexts(sidecarTexts: SidecarText[]) {
-    sidecarTexts
-      .filter((sidecarText) => sidecarText.id)
-      .forEach((sidecarText) => {
-        this.playerService
-          .omakasePlayer!.subtitles.createVttTrack({
-            src: sidecarText.src,
-            id: sidecarText.id ?? crypto.randomUUID(),
-            default: false,
-            label: sidecarText.label ?? '',
-            language: '',
-          })
-          .subscribe({
-            next: (track) => {
-              if (track) {
-                this.playerService.omakasePlayer!.subtitles.showTrack(track.id);
-                sidecarText.id = track.id;
-              } else {
-                this.removeSidecarText(sidecarText);
-                this.createErrorToast();
-              }
-            },
-            error: () => {
-              this.createErrorToast();
-              this.removeSidecarText(sidecarText);
-            },
-          });
-      });
+  public reloadSidecarTexts(sidecarTexts: SidecarText[]) {
+    this.currentService.reloadSidecarTexts(sidecarTexts);
   }
 
   /**
@@ -167,32 +106,21 @@ export class SidecarTextService {
    * @param {SidecarText} sidecarText
    */
   public removeSidecarText(sidecarText: SidecarText) {
-    if (sidecarText.id) {
-      this.playerService.omakasePlayer!.subtitles.removeTrack(sidecarText.id);
-      this.loadedSidecarTexts.update((prev) => prev.filter((st) => st !== sidecarText));
-
-      const subtitleTracks = this.playerService.omakasePlayer!.subtitles.getTracks();
-      if (subtitleTracks.length > 0) {
-        this.playerService.omakasePlayer?.subtitles.showTrack(subtitleTracks.at(-1)!.id);
-      }
-    }
-
-    this._pendingSidecarTexts.update((prev) => prev.filter((sidecar) => sidecar !== sidecarText));
+    this.currentService.removeSidecarText(sidecarText);
   }
 
   /**
    * Remove all sidecar texts from OPCD session
    */
   public removeAllSidecarTexts() {
-    this.loadedSidecarTexts().forEach((track) => this.playerService.omakasePlayer!.subtitles.removeTrack(track.id!));
-    this.loadedSidecarTexts.set([]);
+    this.currentService.removeAllSidecarTexts();
   }
 
-  private createSuccessToast() {
-    this.toastService.show({message: 'Sidecar successfully loaded', type: 'success', duration: 5000});
-  }
-
-  private createErrorToast() {
-    this.toastService.show({message: 'Sidecar load failed', type: 'error', duration: 5000});
+  private setDelegateByLayout(layout: Layout) {
+    if (layout === 'stamp') {
+      this.currentService = this.injector.get(StampLayoutSidecarTextService);
+    } else {
+      this.currentService = this.injector.get(SimpleLayoutSidecarTextService);
+    }
   }
 }

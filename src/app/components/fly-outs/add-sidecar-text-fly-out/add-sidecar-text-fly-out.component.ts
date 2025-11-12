@@ -83,10 +83,14 @@ export class AddSidecarTextFlyOut {
   }
 
   addSidecarText() {
-    this.sidecarTextService.addSidecarText({
-      src: this.form.value.url!,
-      label: this.form.value.label ?? '',
-    });
+    this.sidecarTextService
+      .addSidecarText({
+        src: this.form.value.url!,
+        label: this.form.value.label ?? '',
+      })
+      .subscribe(() => {
+        console.log(this.sidecarTextService.sidecarTexts(), this.sidecarTextService.loadedSidecarTexts());
+      });
 
     this.form.reset();
   }
