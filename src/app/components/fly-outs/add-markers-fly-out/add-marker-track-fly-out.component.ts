@@ -137,7 +137,7 @@ export class AddMarkerTrackFlyOut {
   }
 
   @HostListener('document:keydown.enter', ['$event'])
-  onEnter(event: KeyboardEvent) {
+  onEnter(event: Event) {
     event.preventDefault();
 
     if (!this.isAddDisabled()) {

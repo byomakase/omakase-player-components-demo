@@ -39,7 +39,7 @@ export class PlayerService extends AbstractPlayerService {
       case 'marker':
       case 'timeline':
       case 'chromeless':
-      case 'editorial':
+      case 'hybrid':
       default:
         return this.injector.get(SimpleLayoutPlayerService);
     }

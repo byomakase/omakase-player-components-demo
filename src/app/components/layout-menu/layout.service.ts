@@ -14,16 +14,19 @@
  * limitations under the License.
  */
 
-import {Injectable} from '@angular/core';
-import {AudioVisualization, EditorialControlBarPosition, EditorialTimeFormat, OmakasePlayerConfig} from '@byomakase/omakase-player';
+import {effect, inject, Injectable} from '@angular/core';
+import {AudioVisualization, OmakaseControlBarVisibility, OmakasePlayerConfig, OmakaseThemeActionIcon, OmakaseThemeFloatingControl, OmakaseTimeFormat} from '@byomakase/omakase-player';
 import {BehaviorSubject, Subject} from 'rxjs';
 import {Layout} from '../../model/session.model';
 import {ControlBarVisibility, DefaultThemeControl, DefaultThemeFloatingControl, PlayerChromingTheme, StampTimeFormat, WatermarkVisibility} from '@byomakase/omakase-player/';
+import {OmakaseProgressBarPosition} from '@byomakase/omakase-player';
+import {SimpleLayoutConfigProviderService} from './config-providers/simple-layout-config-provider.service';
 
 @Injectable({
   providedIn: 'root',
 })
 export class LayoutService {
+  private simpleLayoutConfigProviderService = inject(SimpleLayoutConfigProviderService);
   private playerAudioConfigs: Record<Layout, OmakasePlayerConfig> = {
     'simple': {
       playerHTMLElementId: 'omakase-player',
@@ -86,7 +89,7 @@ export class LayoutService {
         theme: PlayerChromingTheme.Chromeless,
       },
     },
-    'editorial': {
+    'hybrid': {
       playerHTMLElementId: 'omakase-player',
       playerChroming: {
         theme: PlayerChromingTheme.Audio,
@@ -98,18 +101,7 @@ export class LayoutService {
     },
   };
   private playerConfigs: Record<Layout, OmakasePlayerConfig> = {
-    'simple': {
-      playerHTMLElementId: 'omakase-player',
-      audioPlayMode: 'single',
-      playerChroming: {
-        theme: PlayerChromingTheme.Default,
-        styleUrl: '/assets/css/omakase-player.css',
-
-        themeConfig: {
-          controlBarVisibility: ControlBarVisibility.Enabled,
-        },
-      },
-    },
+    'simple': this.simpleLayoutConfigProviderService.themeConfig(),
     'audio': {
       playerHTMLElementId: 'omakase-player',
       audioPlayMode: 'multiple',
@@ -179,16 +171,20 @@ export class LayoutService {
         theme: PlayerChromingTheme.Chromeless,
       },
     },
-    'editorial': {
+    'hybrid': {
       playerHTMLElementId: 'omakase-player',
       audioPlayMode: 'single',
       playerChroming: {
-        theme: PlayerChromingTheme.Editorial,
+        theme: PlayerChromingTheme.Omakase,
         styleUrl: '/assets/css/omakase-player.css',
 
         themeConfig: {
-          timeFormat: EditorialTimeFormat.Timecode,
-          controlBarPosition: EditorialControlBarPosition.UnderVideo,
+          timeFormat: OmakaseTimeFormat.Timecode,
+          controlBarVisibility: OmakaseControlBarVisibility.Disabled,
+          floatingControls: [OmakaseThemeFloatingControl.ProgressBar, OmakaseThemeFloatingControl.ActionIcons, OmakaseThemeFloatingControl.PlaybackControls, OmakaseThemeFloatingControl.Time],
+          actionIcons: [OmakaseThemeActionIcon.HelpMenu, OmakaseThemeActionIcon.Fullscreen],
+          alwaysOnFloatingControls: [OmakaseThemeFloatingControl.ProgressBar, OmakaseThemeFloatingControl.Time],
+          progressBarPosition: OmakaseProgressBarPosition.UnderVideo,
         },
       },
     },
@@ -198,7 +194,7 @@ export class LayoutService {
   public onLayoutInitialized$: Subject<boolean> = new BehaviorSubject<boolean>(false);
 
   private _layout: Layout = 'simple';
-  private _layouts: Layout[] = ['simple', 'audio', 'marker', 'timeline', 'stamp', 'chromeless', 'editorial'];
+  private _layouts: Layout[] = ['simple', 'audio', 'marker', 'timeline', 'stamp', 'chromeless', 'hybrid'];
   private _overridableLayouts = ['simple', 'audio', 'marker', 'timeline'];
 
   public set layout(value: Layout) {
@@ -230,10 +226,14 @@ export class LayoutService {
    */
   public getPlayerConfiguration(isMainMediaAudio = false): OmakasePlayerConfig {
     if (isMainMediaAudio && this._overridableLayouts.includes(this._layout)) {
-      return this.playerAudioConfigs[this._layout];
+      return structuredClone(this.playerAudioConfigs[this._layout]);
     }
-    return this.playerConfigs[this._layout];
+    return structuredClone(this.playerConfigs[this._layout]);
   }
 
-  constructor() {}
+  constructor() {
+    effect(() => {
+      this.playerConfigs.simple = this.simpleLayoutConfigProviderService.themeConfig();
+    });
+  }
 }

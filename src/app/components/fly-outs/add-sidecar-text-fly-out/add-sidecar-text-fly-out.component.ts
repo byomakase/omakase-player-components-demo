@@ -83,20 +83,16 @@ export class AddSidecarTextFlyOut {
   }
 
   addSidecarText() {
-    this.sidecarTextService
-      .addSidecarText({
-        src: this.form.value.url!,
-        label: this.form.value.label ?? '',
-      })
-      .subscribe(() => {
-        console.log(this.sidecarTextService.sidecarTexts(), this.sidecarTextService.loadedSidecarTexts());
-      });
+    this.sidecarTextService.addSidecarText({
+      src: this.form.value.url!,
+      label: this.form.value.label ?? '',
+    });
 
     this.form.reset();
   }
 
   @HostListener('document:keydown.enter', ['$event'])
-  onEnter(event: KeyboardEvent) {
+  onEnter(event: Event) {
     event.preventDefault();
 
     if (!this.isAddDisabled()) {

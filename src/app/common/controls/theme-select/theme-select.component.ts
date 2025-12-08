@@ -1,0 +1,58 @@
+/*
+ * Copyright 2025 ByOmakase, LLC (https://byomakase.org)
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+import {AfterViewInit, Component, effect, input, output, signal} from '@angular/core';
+import {FormControl, ReactiveFormsModule} from '@angular/forms';
+
+@Component({
+  selector: 'app-theme-select',
+  imports: [ReactiveFormsModule],
+  template: `
+    <select [formControl]="selectControl">
+      @for(theme of themes(); track theme) {
+      <option [value]="theme">{{ resolveThemeDisplayName(theme) }}</option>
+      }
+    </select>
+  `,
+})
+export class ThemeSelectComponent implements AfterViewInit {
+  public themes = input<string[]>([]);
+  public initiallySelectedTheme = input<string>();
+  public themeSelect = output<string>();
+
+  selectControl = new FormControl('default');
+
+  constructor() {
+    effect(() => {
+      if (this.initiallySelectedTheme()) {
+        this.selectControl.setValue(this.initiallySelectedTheme() ?? this.themes().at(0) ?? '', {emitEvent: false});
+      }
+    });
+  }
+
+  ngAfterViewInit(): void {
+    this.selectControl.valueChanges.subscribe((theme) => {
+      this.themeSelect.emit(theme ?? '');
+    });
+  }
+
+  resolveThemeDisplayName(theme: string) {
+    if (!theme) {
+      return '';
+    }
+    return theme.charAt(0).toUpperCase() + theme.slice(1) + ' Theme';
+  }
+}

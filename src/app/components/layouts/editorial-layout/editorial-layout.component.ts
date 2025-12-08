@@ -87,7 +87,7 @@ type FlexDirection = 'row' | 'column';
                 </button>
               </div>
               <div class="playback-speed">
-                <select [disabled]="playbackRateDisabled()" [formControl]="playbackRateFormControl">
+                <select [formControl]="playbackRateFormControl">
                   @for(playbackRate of playbackRates; track playbackRate) {
                   <option [value]="playbackRate">{{ playbackRate }}x</option>
                   }
@@ -100,7 +100,7 @@ type FlexDirection = 'row' | 'column';
               }
               <div class="volume-slider-container">
                 Volume
-                <input [disabled]="volumeDisabled()" [formControl]="volumeFormControl" class="volume-range" type="range" step="0.01" min="0" max="1" />
+                <input [formControl]="volumeFormControl" class="volume-range" type="range" step="0.01" min="0" max="1" />
               </div>
             </div>
             } @if (numberOfColumns() > 2) {
@@ -176,12 +176,10 @@ export class EditorialLayoutComponent implements AfterViewInit, OnDestroy {
     return this.embeddedTextTracks().length + this.sidecarTextService.loadedSidecarTexts().length === 0;
   });
 
-  public playbackRateFormControl = new FormControl<PlaybackRate>(1);
+  public playbackRateFormControl = new FormControl<PlaybackRate>({value: 1, disabled: true});
   public playbackRates: PlaybackRate[] = [0.25, 0.5, 0.75, 1, 2, 4, 8];
-  public playbackRateDisabled = signal<boolean>(true);
 
   public volumeFormControl = new FormControl<number>(1);
-  public volumeDisabled = signal<boolean>(true);
 
   public isAudioSelectEnabled = computed(() => {
     return this.embeddedAudioTracks().length + this.sidecarAudioService.loadedSidecarAudios().length > 1;
@@ -261,7 +259,8 @@ export class EditorialLayoutComponent implements AfterViewInit, OnDestroy {
             this.muteControlDisabled.set(true);
             this.muteControlState.set('mute');
             this.fullScreenDisabled.set(true);
-            this.playbackRateDisabled.set(true);
+            this.playbackRateFormControl.disable();
+            this.volumeFormControl.disable();
 
             return;
           }
@@ -272,7 +271,8 @@ export class EditorialLayoutComponent implements AfterViewInit, OnDestroy {
           this.playControlDisabled.set(false);
           this.muteControlDisabled.set(false);
           this.fullScreenDisabled.set(false);
-          this.playbackRateDisabled.set(false);
+          this.playbackRateFormControl.enable();
+          this.volumeFormControl.enable();
 
           // track time change event
           player.video.onVideoTimeChange$.pipe(takeUntil(this.destroyed$)).subscribe((videoTimeChangeEvent) => {

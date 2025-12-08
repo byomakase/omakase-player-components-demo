@@ -215,8 +215,6 @@ export class SessionService {
       );
     });
 
-    console.log(this.observationTrackService.observationTracks());
-
     forkJoin([...audiosLoaded$, ...textsLoaded$]).subscribe((results: boolean[]) => {
       const allTrue = results.every((r) => r === true);
       const allFalse = results.every((r) => r === false);

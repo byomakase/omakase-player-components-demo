@@ -138,8 +138,6 @@ export class AddObservationTrackFlyOut {
     const urlControl = this.form.controls.url;
     const visualizationControl = this.form.controls.visualization;
 
-    console.log(urlControl.value, visualizationControl.value);
-
     const hasUrlErrors = urlControl.errors != null;
     const visualizationEmpty = visualizationControl.value === '' || visualizationControl.value === null;
 
@@ -178,7 +176,7 @@ export class AddObservationTrackFlyOut {
   }
 
   @HostListener('document:keydown.enter', ['$event'])
-  onEnter(event: KeyboardEvent) {
+  onEnter(event: Event) {
     event.preventDefault();
 
     if (!this.isAddDisabled()) {

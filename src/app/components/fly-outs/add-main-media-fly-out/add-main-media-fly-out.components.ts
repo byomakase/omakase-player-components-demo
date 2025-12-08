@@ -315,7 +315,7 @@ export class AddMainMediaFlyOut implements OnInit {
   }
 
   @HostListener('document:keydown.enter', ['$event'])
-  onEnter(event: KeyboardEvent) {
+  onEnter(event: Event) {
     event.preventDefault();
 
     if (!this.isLoadDisabled()) {

@@ -40,7 +40,6 @@ export class SimpleLayoutPlayerService extends AbstractPlayerService {
    * @param {Partial<OmakasePlayerConfig>} config
    */
   create(config?: Partial<OmakasePlayerConfig>) {
-    console.log(config);
     this.destroy();
     this._omakasePlayer = new OmakasePlayer(config);
 

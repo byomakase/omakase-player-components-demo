@@ -93,9 +93,7 @@ export class SimpleLayoutSidecarTextService extends AbstractSidecarTextService {
 
             sidecarText.id = track.id;
 
-            console.log(this._pendingSidecarTexts());
             this._pendingSidecarTexts.update((prev) => prev.filter((st) => st !== sidecarText));
-            console.log(this._pendingSidecarTexts());
 
             this.loadedSidecarTexts.update((prev) => [...prev, sidecarText as LoadedSidecarText]);
 

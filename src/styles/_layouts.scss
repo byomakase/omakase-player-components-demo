@@ -50,6 +50,10 @@
             background-image: url(/assets/images/omakase-player/media-chrome-radio-on.svg);
           }
         }
+
+        .omakase-dropdown-option-icon {
+          background-image: url(/assets/images/omakase-player/media-chrome-radio-off.svg);
+        }
       }
     }
 
@@ -73,9 +77,10 @@
     align-items: center;
     margin-bottom: 4em;
 
-    .track-select-container {
-      margin-top: 1em;
+    .selects-container {
+      display: flex;
       width: 84vw;
+      margin-top: 1em;
 
       select {
         width: 300px;

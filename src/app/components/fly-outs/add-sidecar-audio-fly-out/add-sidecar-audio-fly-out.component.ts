@@ -76,11 +76,6 @@ export class AddSidecarAudioFlyOut {
     this.form.controls.url.valueChanges.subscribe(() => {
       this.isAddDisabled.set(this.form.controls.url.errors != null);
     });
-
-    effect(() => {
-      console.log(this.sidecarAudioService.sidecarAudios());
-      console.log(this.sidecarAudioService);
-    });
   }
 
   close() {
@@ -97,7 +92,7 @@ export class AddSidecarAudioFlyOut {
   }
 
   @HostListener('document:keydown.enter', ['$event'])
-  onEnter(event: KeyboardEvent) {
+  onEnter(event: Event) {
     event.preventDefault();
 
     if (!this.isAddDisabled()) {

@@ -43,7 +43,7 @@ const layouts: Record<Layout, Type<any>> = {
   'timeline': TimelineLayoutComponent,
   'stamp': StampLayoutComponent,
   'chromeless': ChromelessLayoutComponent,
-  'editorial': EditorialLayoutComponent,
+  'hybrid': EditorialLayoutComponent,
 };
 
 @Component({

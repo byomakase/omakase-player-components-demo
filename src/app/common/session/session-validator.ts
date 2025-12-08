@@ -43,7 +43,7 @@ export const trackVisualizationSchema = z.object({
 });
 
 export const presentationSchema = z.object({
-  layouts: z.array(z.enum(['simple', 'audio', 'marker', 'timeline', 'stamp', 'chromeless', 'editorial'])),
+  layouts: z.array(z.enum(['simple', 'audio', 'marker', 'timeline', 'stamp', 'chromeless', 'hybrid'])),
   read_only: z.boolean().optional(),
   track_visualization: z.record(z.string(), trackVisualizationSchema).optional(),
   disable_media_fly_outs: z.boolean().optional(),
