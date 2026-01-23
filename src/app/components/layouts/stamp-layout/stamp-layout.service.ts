@@ -111,7 +111,7 @@ export class StampLayoutService {
           player.loadVideo(video.sourceUrl, videoLoadOptions).subscribe(() => {
             const thumbnailTrackUrl = this.playerService.thumbnailTrackUrl();
             if (thumbnailTrackUrl) {
-              player.setThumbnailVttUrl(thumbnailTrackUrl);
+              player.chroming.setThumbnailVttUrl(thumbnailTrackUrl);
             }
             result$.next(id);
             result$.complete();

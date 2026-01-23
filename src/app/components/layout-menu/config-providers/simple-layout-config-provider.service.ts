@@ -10,12 +10,11 @@ import {
   OmakaseThemeActionIcon,
   OmakaseThemeControl,
   OmakaseThemeFloatingControl,
-  OmakaseTimeFormat,
+  TimeFormat,
   PlayerChromingTheme,
   StampThemeActionIcon,
   StampThemeFloatingControl,
   StampThemeScale,
-  StampTimeFormat,
   WatermarkVisibility,
 } from '@byomakase/omakase-player';
 
@@ -61,7 +60,7 @@ export class SimpleLayoutConfigProviderService {
       playerChroming: {
         theme: PlayerChromingTheme.Stamp,
         themeConfig: {
-          timeFormat: StampTimeFormat.Timecode,
+          timeFormat: TimeFormat.Timecode,
           stampScale: StampThemeScale.Fit,
           actionIcons: [StampThemeActionIcon.Fullscreen, StampThemeActionIcon.AudioToggle],
           floatingControls: [StampThemeFloatingControl.ActionIcons, StampThemeFloatingControl.PlaybackControls, StampThemeFloatingControl.ProgressBar, StampThemeFloatingControl.Time],
@@ -78,7 +77,7 @@ export class SimpleLayoutConfigProviderService {
         styleUrl: '/assets/css/omakase-player.css',
 
         themeConfig: {
-          timeFormat: OmakaseTimeFormat.Timecode,
+          timeFormat: TimeFormat.Timecode,
           controlBarVisibility: OmakaseControlBarVisibility.Enabled,
           floatingControls: [OmakaseThemeFloatingControl.ProgressBar, OmakaseThemeFloatingControl.ActionIcons, OmakaseThemeFloatingControl.PlaybackControls, OmakaseThemeFloatingControl.Time],
           actionIcons: [OmakaseThemeActionIcon.HelpMenu, OmakaseThemeActionIcon.ControlBarToggle],

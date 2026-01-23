@@ -78,7 +78,7 @@ export class SimpleLayoutPlayerService extends AbstractPlayerService {
     }
 
     if (url) {
-      this.omakasePlayer.setThumbnailVttUrl(url);
+      this.omakasePlayer.chroming.setThumbnailVttUrl(url);
     }
     this.thumbnailTrackUrl.set(url);
   }

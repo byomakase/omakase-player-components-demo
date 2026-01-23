@@ -111,12 +111,12 @@ export class StampLayoutComponent implements OnDestroy {
    * @returns
    */
   private createMarkerTrack(player: OmakasePlayer, markerTrack: MarkerTrack) {
-    player.progressMarkerTrack?.removeAllMarkers();
+    player.chroming.progressMarkerTrack?.removeAllMarkers();
     if (!markerTrack) return;
 
     const colorResolver = this.colorService.createColorResolver(crypto.randomUUID(), this.markerTrackService.HEX_COLORS);
 
-    player.progressMarkerTrack?.loadVtt(markerTrack.src, {
+    player.chroming.progressMarkerTrack?.loadVtt(markerTrack.src, {
       vttMarkerCreateFn(cue, index) {
         const name = '';
         const color = markerTrack.color !== 'multicolor' ? markerTrack.color : colorResolver.getColor(true);

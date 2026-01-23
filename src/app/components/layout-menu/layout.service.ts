@@ -15,10 +15,10 @@
  */
 
 import {effect, inject, Injectable} from '@angular/core';
-import {AudioVisualization, OmakaseControlBarVisibility, OmakasePlayerConfig, OmakaseThemeActionIcon, OmakaseThemeFloatingControl, OmakaseTimeFormat} from '@byomakase/omakase-player';
+import {AudioVisualization, OmakaseControlBarVisibility, OmakasePlayerConfig, OmakaseThemeActionIcon, OmakaseThemeFloatingControl, TimeFormat} from '@byomakase/omakase-player';
 import {BehaviorSubject, Subject} from 'rxjs';
 import {Layout} from '../../model/session.model';
-import {ControlBarVisibility, DefaultThemeControl, DefaultThemeFloatingControl, PlayerChromingTheme, StampTimeFormat, WatermarkVisibility} from '@byomakase/omakase-player/';
+import {ControlBarVisibility, DefaultThemeControl, DefaultThemeFloatingControl, PlayerChromingTheme, WatermarkVisibility} from '@byomakase/omakase-player/';
 import {OmakaseProgressBarPosition} from '@byomakase/omakase-player';
 import {SimpleLayoutConfigProviderService} from './config-providers/simple-layout-config-provider.service';
 
@@ -77,7 +77,7 @@ export class LayoutService {
       playerChroming: {
         theme: PlayerChromingTheme.Stamp,
         themeConfig: {
-          timeFormat: StampTimeFormat.Timecode,
+          timeFormat: TimeFormat.Timecode,
         },
         watermarkVisibility: WatermarkVisibility.AutoHide,
       },
@@ -159,7 +159,7 @@ export class LayoutService {
       playerChroming: {
         theme: PlayerChromingTheme.Stamp,
         themeConfig: {
-          timeFormat: StampTimeFormat.Timecode,
+          timeFormat: TimeFormat.Timecode,
         },
         watermarkVisibility: WatermarkVisibility.AutoHide,
       },
@@ -179,7 +179,7 @@ export class LayoutService {
         styleUrl: '/assets/css/omakase-player.css',
 
         themeConfig: {
-          timeFormat: OmakaseTimeFormat.Timecode,
+          timeFormat: TimeFormat.Timecode,
           controlBarVisibility: OmakaseControlBarVisibility.Disabled,
           floatingControls: [OmakaseThemeFloatingControl.ProgressBar, OmakaseThemeFloatingControl.ActionIcons, OmakaseThemeFloatingControl.PlaybackControls, OmakaseThemeFloatingControl.Time],
           actionIcons: [OmakaseThemeActionIcon.HelpMenu, OmakaseThemeActionIcon.Fullscreen],

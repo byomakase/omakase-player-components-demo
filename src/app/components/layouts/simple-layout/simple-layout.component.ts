@@ -70,7 +70,7 @@ export class SimpleLayoutComponent implements OnDestroy {
       .pipe(takeUntil(this.destroyed$))
       .subscribe(([markerTrack, player]) => {
         if (!markerTrack) {
-          this.playerService.omakasePlayer?.progressMarkerTrack?.removeAllMarkers();
+          this.playerService.omakasePlayer?.chroming.progressMarkerTrack?.removeAllMarkers();
           return;
         }
 
@@ -141,14 +141,14 @@ export class SimpleLayoutComponent implements OnDestroy {
       return;
     }
 
-    player.progressMarkerTrack?.removeAllMarkers();
+    player.chroming.progressMarkerTrack?.removeAllMarkers();
     if (!markerTrack) {
       return;
     }
 
     const colorResolver = this.colorService.createColorResolver(crypto.randomUUID(), this.markerTrackService.HEX_COLORS);
 
-    player.progressMarkerTrack?.loadVtt(markerTrack.src, {
+    player.chroming.progressMarkerTrack?.loadVtt(markerTrack.src, {
       vttMarkerCreateFn(cue, index) {
         const name = '';
 

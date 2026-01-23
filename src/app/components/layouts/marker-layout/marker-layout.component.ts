@@ -112,8 +112,8 @@ export class MarkerLayoutComponent implements OnDestroy {
               takeUntil(this.markerTrack$.pipe(skip(1)))
             )
             .subscribe(() => {
-              const dropdown = this.playerService.omakasePlayer!.getPlayerChromingElement<OmakaseDropdownList>('#marker-track-dropdown-list');
-              const dropdownToggle = this.playerService.omakasePlayer!.getPlayerChromingElement<OmakaseDropdownToggle>('.marker-track-dropdown-toggle');
+              const dropdown = this.playerService.omakasePlayer!.chroming.getPlayerChromingElement<OmakaseDropdownList>('#marker-track-dropdown-list');
+              const dropdownToggle = this.playerService.omakasePlayer!.chroming.getPlayerChromingElement<OmakaseDropdownToggle>('.marker-track-dropdown-toggle');
 
               dropdown.setOptions(dropdownOptions);
               if (dropdownOptions.length === 0) {
@@ -167,7 +167,7 @@ export class MarkerLayoutComponent implements OnDestroy {
             takeUntil(this.destroyed$)
           )
           .subscribe(() => {
-            const dropdown = this.playerService.omakasePlayer!.getPlayerChromingElement<OmakaseDropdownList>('#marker-track-dropdown-list');
+            const dropdown = this.playerService.omakasePlayer!.chroming.getPlayerChromingElement<OmakaseDropdownList>('#marker-track-dropdown-list');
             dropdown.selectedOption$.pipe(takeUntil(this.destroyed$)).subscribe((dropdownItem) => {
               if (dropdownItem) {
                 this.markerTrackService.activeMarkerTrack.set(this.markerTrackService.markerTracks().find((markerTrack) => markerTrack.id === dropdownItem.value));
@@ -193,7 +193,7 @@ export class MarkerLayoutComponent implements OnDestroy {
 
     const colorResolver = this.colorService.createColorResolver(crypto.randomUUID(), this.markerTrackService.HEX_COLORS);
 
-    player
+    player.chroming
       .createMarkerTrack({
         vttUrl: markerTrack.src,
         vttMarkerCreateFn: (cue, index) => {

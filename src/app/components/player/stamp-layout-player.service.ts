@@ -66,7 +66,7 @@ export class StampLayoutPlayerService extends AbstractPlayerService {
       });
       this.onCreated$.next(this._omakasePlayer);
 
-      this._omakasePlayer!.setWatermark('Main Media + Default Audio');
+      this._omakasePlayer!.chroming.setWatermark('Main Media + Default Audio');
 
       //TODO remove when support for sidecar text in stamp player is added
       this._omakasePlayer!.subtitles.onShow$.subscribe(() => this._omakasePlayer!.subtitles.hideActiveTrack());
@@ -93,7 +93,7 @@ export class StampLayoutPlayerService extends AbstractPlayerService {
     }
 
     if (url) {
-      this.omakasePlayer.setThumbnailVttUrl(url);
+      this.omakasePlayer.chroming.setThumbnailVttUrl(url);
     }
     this.thumbnailTrackUrl.set(url);
   }

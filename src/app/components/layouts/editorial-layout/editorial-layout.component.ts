@@ -430,7 +430,7 @@ export class EditorialLayoutComponent implements AfterViewInit, OnDestroy {
 
     const colorResolver = this.colorService.createColorResolver(crypto.randomUUID(), this.markerTrackService.HEX_COLORS);
 
-    player
+    player.chroming
       .createMarkerTrack({
         vttUrl: markerTrack.src,
         vttMarkerCreateFn: (cue, index) => {
