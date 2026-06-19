@@ -14,31 +14,29 @@
  * limitations under the License.
  */
 
-import {ClickEvent, ConfigWithOptionalStyle, SubtitlesApi, SubtitlesVttTrack, Timeline, VideoControllerApi} from '@byomakase/omakase-player';
-import {BaseGroupingLane, BaseGroupingLaneConfig} from '../base-grouping-lane';
+import {BaseGroupingLane, BaseGroupingLaneConfig, BaseGroupingLaneStyle} from '../base-grouping-lane';
 import {SidecarText} from '../../../../components/fly-outs/add-sidecar-text-fly-out/text-sidecar.service';
 import {TextControlImageButton} from './text-control/text-control-image-button';
 import {Constants} from '../../../../constants/constants';
-import {takeUntil} from 'rxjs';
+import {filter, takeUntil} from 'rxjs';
+import {ConfigAndStyle, LabelLane, LabelLaneConfig, OmpProvider, PlayerApi, PlayerTextApi, PlayerTextEventType, TextTrack, TimelineImpl, TimelineNodeEventType} from '@byomakase/omakase-player';
 
 export interface TextTrackGroupingLaneConfig extends BaseGroupingLaneConfig {
-  textTrack: SubtitlesVttTrack | SidecarText;
-  subtitlesVttTrack?: SubtitlesVttTrack;
+  textTrack: TextTrack | SidecarText;
 }
 
-export class TextTrackGroupingLane extends BaseGroupingLane<TextTrackGroupingLaneConfig> {
-  private _subtitlesApi: SubtitlesApi;
+export interface TextTrackGroupingLaneStyle extends BaseGroupingLaneStyle {}
 
-  private _textTrack: SubtitlesVttTrack | SidecarText;
-
+export class TextTrackGroupingLane extends BaseGroupingLane<TextTrackGroupingLaneConfig, TextTrackGroupingLaneStyle> {
+  private _textApi: PlayerTextApi;
+  private _textTrack: TextTrack | SidecarText;
   private _subtitlesControlButton: TextControlImageButton;
 
-  constructor(config: ConfigWithOptionalStyle<TextTrackGroupingLaneConfig>, subtitlesApi: SubtitlesApi) {
-    super(config);
+  constructor(configAndStyle: ConfigAndStyle<TextTrackGroupingLaneConfig, TextTrackGroupingLaneStyle> & Pick<TextTrackGroupingLaneConfig, 'text' | 'textTrack'>, textApi: PlayerTextApi) {
+    super(configAndStyle);
 
-    this._subtitlesApi = subtitlesApi;
-
-    this._textTrack = config.textTrack;
+    this._textApi = textApi;
+    this._textTrack = configAndStyle.textTrack;
 
     this._subtitlesControlButton = new TextControlImageButton({
       disabled: this.isDisabled,
@@ -48,42 +46,44 @@ export class TextTrackGroupingLane extends BaseGroupingLane<TextTrackGroupingLan
       width: 22,
       height: 22,
     });
-
-    this.addTimelineNode({
-      timelineNode: this._subtitlesControlButton.timelineNode,
-      width: this._subtitlesControlButton.dimension.width,
-      height: this._subtitlesControlButton.dimension.height,
-      justify: 'start',
-      margin: [0, 0, 0, 0],
-    });
   }
 
-  override prepareForTimeline(timeline: Timeline, videoController: VideoControllerApi) {
-    super.prepareForTimeline(timeline, videoController);
+  override prepareForTimeline(timeline: TimelineImpl, player: PlayerApi, ompProvider: OmpProvider): void {
+    super.prepareForTimeline(timeline, player, ompProvider);
+
+    setTimeout(() => {
+      this.addTimelineNode({
+        timelineNode: this._subtitlesControlButton.timelineNode,
+        width: this._subtitlesControlButton.dimension.width,
+        height: this._subtitlesControlButton.dimension.height,
+        justify: 'start',
+        margin: [0, 0, 0, 0],
+      });
+    }, 100);
 
     if (!this.isDisabled) {
-      this._subtitlesApi.onShow$.pipe(takeUntil(this._destroyed$)).subscribe({
-        next: (event) => {
+      this._textApi.onEvent$
+        .pipe(
+          takeUntil(this._destroyBreaker.observer)
+          // filter((event) => event.type === PlayerTextEventType.PLAYER_TEXT_CHANGE)
+        )
+        .subscribe(() => {
           this.updateStyles();
-        },
-      });
+        });
 
-      this._subtitlesApi.onHide$.pipe(takeUntil(this._destroyed$)).subscribe({
+      this._subtitlesControlButton.timelineNode.onEvent$.pipe(takeUntil(this._destroyBreaker.observer)).subscribe({
         next: (event) => {
-          this.updateStyles();
+          if (event.type === TimelineNodeEventType.TIMELINE_NODE_CLICK) {
+            this.setTextTrack();
+          }
         },
       });
 
-      this._subtitlesControlButton.timelineNode.onClick$.pipe(takeUntil(this._destroyed$)).subscribe({
-        next: (event: ClickEvent) => {
-          this.setTextTrack();
-        },
-      });
-
-      this._textLabel!.onClick$.pipe(takeUntil(this._destroyed$)).subscribe({
-        next: (event: ClickEvent) => {
-          event.cancelableEvent.cancelBubble = true;
-          this.setTextTrack();
+      this._textLabel!.onEvent$.pipe(takeUntil(this._destroyBreaker.observer)).subscribe({
+        next: (event) => {
+          if (event.type === TimelineNodeEventType.TIMELINE_NODE_CLICK) {
+            this.setTextTrack();
+          }
         },
       });
     }
@@ -94,10 +94,10 @@ export class TextTrackGroupingLane extends BaseGroupingLane<TextTrackGroupingLan
   private updateStyles() {
     if (!this.isDisabled) {
       if (this.isActive) {
-        this.style = Constants.LABEL_LANE_SELECTED_STYLE;
+        this.setStyle(Constants.LABEL_LANE_SELECTED_STYLE);
         this._subtitlesControlButton.state = 'active';
       } else {
-        this.style = Constants.LABEL_LANE_STYLE;
+        this.setStyle(Constants.LABEL_LANE_STYLE);
         this._subtitlesControlButton.state = 'default';
       }
     }
@@ -106,28 +106,28 @@ export class TextTrackGroupingLane extends BaseGroupingLane<TextTrackGroupingLan
   setTextTrack() {
     if (!this.isDisabled) {
       if (this.isActive) {
-        this._subtitlesApi.hideTrack(this._textTrack.id!);
+        this._textApi.switchTrack(this._textTrack.id!, false).subscribe();
       } else {
-        this._subtitlesApi.showTrack(this._textTrack.id!);
+        this._textApi.switchTrack(this._textTrack.id!).subscribe();
       }
-      this.updateStyles();
     }
   }
 
   get isActive(): boolean {
-    let currentTrack = this._subtitlesApi.getActiveTrack();
-    return !!currentTrack && !currentTrack.hidden && this._textTrack!.id === currentTrack.id;
+    const allTracks = [...(this._textApi.state.tracks['MAIN'] ?? []), ...(this._textApi.state.tracks['SIDECAR'] ?? [])];
+    const activeTrack = allTracks.find((t) => t.active && t.shown);
+    return !!activeTrack && activeTrack.trackId === this._textTrack.id;
   }
 
   get isDisabled(): boolean {
     return !this._textTrack;
   }
 
-  get textTrack(): SubtitlesVttTrack | SidecarText {
+  get textTrack(): TextTrack | SidecarText {
     return this._textTrack;
   }
 
-  set textTrack(textTrack: SubtitlesVttTrack | SidecarText) {
+  set textTrack(textTrack: TextTrack | SidecarText) {
     this._textTrack = textTrack;
   }
 }

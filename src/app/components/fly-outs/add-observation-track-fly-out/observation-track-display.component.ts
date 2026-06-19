@@ -17,7 +17,7 @@
 import {Component, computed, inject, input, output} from '@angular/core';
 import {IconDirective} from '../../../common/icon/icon.directive';
 import {StringUtil} from '../../../common/util/string-util';
-import {ObservationTrack} from './observation-track.service';
+import {SidecarObservationTrack} from './observation-track.service';
 
 @Component({
   selector: 'app-observation-track-display',
@@ -40,7 +40,7 @@ import {ObservationTrack} from './observation-track.service';
   },
 })
 export class ObservationTrackDisplay {
-  observationTrack = input.required<ObservationTrack>();
+  observationTrack = input.required<SidecarObservationTrack>();
   filename = computed(() => StringUtil.leafUrlToken(this.observationTrack().src));
   deleted = output<void>();
 }

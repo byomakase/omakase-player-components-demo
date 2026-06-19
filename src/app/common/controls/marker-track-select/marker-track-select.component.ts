@@ -18,15 +18,15 @@ import {AfterViewInit, Component, effect, inject, OnDestroy} from '@angular/core
 import {FormControl, ReactiveFormsModule} from '@angular/forms';
 import {Subject} from 'rxjs';
 import {StringUtil} from '../../../common/util/string-util';
-import {MarkerTrack, MarkerTrackService} from '../../../components/fly-outs/add-markers-fly-out/marker-track.service';
+import {SidecarMarkerTrack, MarkerTrackService} from '../../../components/fly-outs/add-markers-fly-out/marker-track.service';
 
 @Component({
   selector: 'app-marker-track-select',
   imports: [ReactiveFormsModule],
   template: `
     <select [formControl]="selectControl">
-      @for(track of markerTrackService.markerTracks(); track track) {
-      <option [value]="$index">{{ resolveTrackDisplayName(track) }}</option>
+      @for (track of markerTrackService.markerTracks(); track track) {
+        <option [value]="$index">{{ resolveTrackDisplayName(track) }}</option>
       }
     </select>
   `,
@@ -61,7 +61,7 @@ export class MarkerTrackSelectComponent implements AfterViewInit, OnDestroy {
     this.destroyed$.complete();
   }
 
-  resolveTrackDisplayName(track: MarkerTrack) {
+  resolveTrackDisplayName(track: SidecarMarkerTrack) {
     if (!track.label || track.label === '') {
       return StringUtil.leafUrlToken(track.src);
     }

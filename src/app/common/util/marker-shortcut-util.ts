@@ -14,235 +14,171 @@
  * limitations under the License.
  */
 
-import {HelpMenuGroup, HelpMenuItem, MarkerAwareApi, OmakasePlayerApi} from '@byomakase/omakase-player';
+import {HelpMenuGroup, HelpMenuItem, Marker, MarkerTrack, OmakasePlayer, PlayerEventType, TimedItemTemporalType, TimedItemTemporalUtil} from '@byomakase/omakase-player';
 import {filter, Subject, takeUntil} from 'rxjs';
 
 export class MarkerShortcutUtil {
   public static getKeyboardShortcutsHelpMenuGroup(platform: 'unknown' | 'macos' | 'windows' | 'linux'): HelpMenuGroup {
-    let keyCombination = (...keys: string[]) => {
-      return keys.join(' + ');
-    };
+    const shiftKey = 'SHIFT';
 
-    let multipleCombinations = (...keys: string[]) => {
-      return keys.join(', ');
-    };
-
-    let shiftKey = 'shift'.toUpperCase();
-    let ctrlKey = 'ctrl'.toUpperCase();
-    let altKey = platform === 'macos' ? 'option' : 'alt';
-    let metaKey = platform === 'windows' ? 'win' : platform === 'linux' ? 'super' : 'cmd';
-
-    let markerHelpMenuItems: HelpMenuItem[] = [
-      {
-        description: 'Toggle previous marker',
-        name: keyCombination('/'),
-      },
-
-      {
-        description: 'Toggle next marker',
-        name: keyCombination(shiftKey, '/'),
-      },
-
-      {
-        description: 'Set end of active marker to current time',
-        name: keyCombination('i'),
-      },
-
-      {
-        description: 'Set end of active marker to current time',
-        name: keyCombination('0'),
-      },
-
-      {
-        description: 'Set playhead to start of active marker',
-        name: keyCombination('['),
-      },
-
-      {
-        description: 'Set playhead to end of active Marker',
-        name: keyCombination(']'),
-      },
-
-      {
-        description: 'Loop active marker',
-        name: keyCombination('p'),
-      },
+    const markerHelpMenuItems: HelpMenuItem[] = [
+      {description: 'Toggle previous marker', name: '/'},
+      {description: 'Toggle next marker', name: `${shiftKey} + /`},
+      {description: 'Set start of active marker to current time', name: 'I'},
+      {description: 'Set end of active marker to current time', name: 'O'},
+      {description: 'Set playhead to start of active marker', name: '['},
+      {description: 'Set playhead to end of active marker', name: ']'},
+      {description: 'Loop active marker', name: 'P'},
     ];
 
     return {
-      name: $localize`Marker Shortcuts`,
-      items: [...markerHelpMenuItems],
+      name: 'Marker Shortcuts',
+      items: markerHelpMenuItems,
     };
   }
 
   /**
-   * Returns true if keyboard mapping was handled successfully or false if mapping was not handled
-   *
-   * @param event
-   * @param omakasePlayer
+   * Returns true if the keyboard event was handled, false otherwise.
    */
-  public static handleKeyboardEvent(event: KeyboardEvent, omakasePlayer: OmakasePlayerApi, markerAwareApi: MarkerAwareApi | undefined): boolean {
+  public static handleKeyboardEvent(event: KeyboardEvent, omakasePlayer: OmakasePlayer, markerTrack: MarkerTrack | undefined, focusMarker: (markerId: string) => void): boolean {
     const targetElement = event.target as HTMLElement;
-    const formInputs = ['INPUT', 'TEXTAREA', 'OMAKASE-MARKER-LIST'];
-    if (formInputs.includes(targetElement.tagName.toUpperCase())) {
+    if (['INPUT', 'TEXTAREA'].includes(targetElement.tagName.toUpperCase())) {
       return false;
     }
 
-    if (omakasePlayer && omakasePlayer.video && markerAwareApi) {
-      //  Toggle previous marker
-      if (event.code === 'Slash' && !event.shiftKey) {
-        // enabled only in non-fullscreen mode for safari
-        const selectedMarker = markerAwareApi.getSelectedMarker();
-        if (!selectedMarker) {
-          const firstMarker = markerAwareApi.getMarkers().at(0);
-          if (firstMarker) {
-            markerAwareApi.toggleMarker(firstMarker.id);
-          }
-        } else {
-          const markers = markerAwareApi.getMarkers();
-          const index = markers.findIndex((marker) => marker.id === selectedMarker.id);
-          markerAwareApi.toggleMarker(markers.at((index + markers.length - 1) % markers.length)!.id);
-        }
-
-        return true;
-      }
-
-      // Toggle next marker
-      if (event.code === 'Slash' && event.shiftKey) {
-        const selectedMarker = markerAwareApi.getSelectedMarker();
-        if (!selectedMarker) {
-          const firstMarker = markerAwareApi.getMarkers().at(0);
-          if (firstMarker) {
-            markerAwareApi.toggleMarker(firstMarker.id);
-          }
-        } else {
-          const markers = markerAwareApi.getMarkers();
-          const index = markers.findIndex((marker) => marker.id === selectedMarker.id);
-          markerAwareApi.toggleMarker(markers.at((index + markers.length + 1) % markers.length)!.id);
-        }
-
-        return true;
-      }
-
-      // Set Start of Active Marker to Playhead Position
-      if (event.code === 'KeyI' && !event.metaKey) {
-        const selectedMarker = markerAwareApi.getSelectedMarker();
-        if (selectedMarker && selectedMarker.editable) {
-          const currentVideoTime = omakasePlayer.video.getCurrentTime();
-
-          if ('time' in selectedMarker.timeObservation) {
-            selectedMarker.timeObservation = {time: currentVideoTime};
-          } else {
-            const end = selectedMarker.timeObservation.end;
-
-            if (end != undefined && end > currentVideoTime) {
-              selectedMarker.timeObservation = {start: currentVideoTime, end: end};
-            }
-          }
-        }
-
-        return true;
-      }
-
-      // Set End of Active Marker to Playhead Position
-      if (event.code === 'KeyO') {
-        const selectedMarker = markerAwareApi.getSelectedMarker();
-        if (selectedMarker && selectedMarker.editable) {
-          const currentVideoTime = omakasePlayer.video.getCurrentTime();
-
-          if ('time' in selectedMarker.timeObservation) {
-            selectedMarker.timeObservation = {time: currentVideoTime};
-          } else {
-            const start = selectedMarker.timeObservation.start;
-
-            if (start != undefined && start < currentVideoTime) {
-              selectedMarker.timeObservation = {start: start, end: currentVideoTime};
-            }
-          }
-        }
-
-        return true;
-      }
-
-      //Set Playhead to Start of Active Marker
-      if (event.code === 'BracketLeft') {
-        const selectedMarker = markerAwareApi.getSelectedMarker();
-        if (selectedMarker) {
-          if ('time' in selectedMarker.timeObservation) {
-            omakasePlayer.video.seekToTime(selectedMarker.timeObservation.time);
-          } else {
-            const start = selectedMarker.timeObservation.start;
-
-            if (start != undefined) {
-              omakasePlayer.video.seekToTime(start);
-            }
-          }
-        }
-
-        return true;
-      }
-
-      //Set Playhead to end of Active Marker
-      if (event.code === 'BracketRight') {
-        const selectedMarker = markerAwareApi.getSelectedMarker();
-        if (selectedMarker) {
-          if ('time' in selectedMarker.timeObservation) {
-            omakasePlayer.video.seekToTime(selectedMarker.timeObservation.time);
-          } else {
-            const end = selectedMarker.timeObservation.end;
-
-            if (end != undefined) {
-              omakasePlayer.video.seekToTime(end);
-            }
-          }
-        }
-
-        return true;
-      }
-
-      // Loop active marker
-      if (event.code === 'KeyP') {
-        const selectedMarker = markerAwareApi.getSelectedMarker();
-        if (selectedMarker) {
-          if ('start' in selectedMarker.timeObservation && 'end' in selectedMarker.timeObservation) {
-            const start = selectedMarker.timeObservation.start;
-            const end = selectedMarker.timeObservation.end;
-            if (start != undefined && end != undefined) {
-              const playBreaker$ = new Subject<void>();
-
-              omakasePlayer.video.seekToTime(start).subscribe(() => {
-                omakasePlayer.video.onSeeking$.subscribe(() => {
-                  playBreaker$.next();
-                  playBreaker$.complete();
-                });
-              });
-              omakasePlayer.video.play();
-
-              markerAwareApi.onMarkerUpdate$
-                .pipe(
-                  filter((markerUpdateEvent) => markerUpdateEvent.marker.id === selectedMarker.id),
-                  takeUntil(playBreaker$)
-                )
-                .subscribe(() => {
-                  playBreaker$.next();
-                  playBreaker$.complete();
-                });
-              omakasePlayer.video.onVideoTimeChange$.pipe(takeUntil(playBreaker$)).subscribe((videoTimeChangedEvent) => {
-                if (videoTimeChangedEvent.currentTime >= end) {
-                  playBreaker$.next();
-                  playBreaker$.complete();
-                  omakasePlayer.video.seekToTime(start).subscribe(() => omakasePlayer.video.pause());
-                }
-              });
-            }
-          } else {
-          }
-        }
-
-        return true;
-      }
-
+    if (!omakasePlayer.player.mainMedia || !markerTrack) {
       return false;
+    }
+
+    const getFocusedMarker = (): Marker | undefined => {
+      const focused = omakasePlayer.ui.elements.find((el) => el.props?.focused);
+      return focused ? markerTrack.getTimedItem(focused.id) : undefined;
+    };
+
+    // Toggle previous marker
+    if (event.code === 'Slash' && !event.shiftKey) {
+      const markers = markerTrack.timedItemsSorted;
+      if (!markers.length) return true;
+      const focused = getFocusedMarker();
+      if (!focused) {
+        focusMarker(markers[0].id);
+      } else {
+        const index = markers.findIndex((m) => m.id === focused.id);
+        focusMarker(markers.at((index + markers.length - 1) % markers.length)!.id);
+      }
+      return true;
+    }
+
+    // Toggle next marker
+    if (event.code === 'Slash' && event.shiftKey) {
+      const markers = markerTrack.timedItemsSorted;
+      if (!markers.length) return true;
+      const focused = getFocusedMarker();
+      if (!focused) {
+        focusMarker(markers[0].id);
+      } else {
+        const index = markers.findIndex((m) => m.id === focused.id);
+        focusMarker(markers.at((index + 1) % markers.length)!.id);
+      }
+      return true;
+    }
+
+    // Set start of active marker to current time
+    if (event.code === 'KeyI') {
+      const focused = getFocusedMarker();
+      if (focused) {
+        const currentTime = omakasePlayer.player.getCurrentTime();
+        const temporal = focused.temporal;
+        if (temporal.type === TimedItemTemporalType.MOMENT) {
+          markerTrack.updateTimedItem(focused.id, {temporal: {type: TimedItemTemporalType.MOMENT, time: String(currentTime)}});
+        } else if (temporal.type === TimedItemTemporalType.SPAN) {
+          const end = TimedItemTemporalUtil.extractEndTime(temporal)!;
+          if (currentTime < end) {
+            markerTrack.updateTimedItem(focused.id, {temporal: {type: TimedItemTemporalType.SPAN, start: String(currentTime), end: String(end)}});
+          }
+        }
+      }
+      return true;
+    }
+
+    // Set end of active marker to current time
+    if (event.code === 'KeyO') {
+      const focused = getFocusedMarker();
+      if (focused) {
+        const currentTime = omakasePlayer.player.getCurrentTime();
+        const temporal = focused.temporal;
+        if (temporal.type === TimedItemTemporalType.MOMENT) {
+          markerTrack.updateTimedItem(focused.id, {temporal: {type: TimedItemTemporalType.MOMENT, time: String(currentTime)}});
+        } else if (temporal.type === TimedItemTemporalType.SPAN) {
+          const start = TimedItemTemporalUtil.extractStartTime(temporal)!;
+          if (currentTime > start) {
+            markerTrack.updateTimedItem(focused.id, {temporal: {type: TimedItemTemporalType.SPAN, start: String(start), end: String(currentTime)}});
+          }
+        }
+      }
+      return true;
+    }
+
+    // Set playhead to start of active marker
+    if (event.code === 'BracketLeft') {
+      const focused = getFocusedMarker();
+      if (focused) {
+        const start = TimedItemTemporalUtil.extractStartTime(focused.temporal);
+        if (start != null) {
+          omakasePlayer.player.seekTo(start).subscribe();
+        }
+      }
+      return true;
+    }
+
+    // Set playhead to end of active marker
+    if (event.code === 'BracketRight') {
+      const focused = getFocusedMarker();
+      if (focused) {
+        const end = TimedItemTemporalUtil.extractEndTime(focused.temporal);
+        if (end != null) {
+          omakasePlayer.player.seekTo(end).subscribe();
+        }
+      }
+      return true;
+    }
+
+    // Loop active marker
+    if (event.code === 'KeyP') {
+      const focused = getFocusedMarker();
+      if (focused && focused.temporal.type === TimedItemTemporalType.SPAN) {
+        const start = TimedItemTemporalUtil.extractStartTime(focused.temporal);
+        const end = TimedItemTemporalUtil.extractEndTime(focused.temporal);
+        if (start != null && end != null) {
+          const loopBreaker$ = new Subject<void>();
+
+          omakasePlayer.player.onEvent$
+            .pipe(
+              filter((e) => e.type === PlayerEventType.PLAYER_SEEKING),
+              takeUntil(loopBreaker$)
+            )
+            .subscribe(() => {
+              loopBreaker$.next();
+              loopBreaker$.complete();
+            });
+
+          omakasePlayer.player.onEvent$
+            .pipe(
+              filter((e) => e.type === PlayerEventType.PLAYER_PLAYBACK_PROGRESS),
+              takeUntil(loopBreaker$)
+            )
+            .subscribe((e) => {
+              if (e.data.currentTime >= end) {
+                loopBreaker$.next();
+                loopBreaker$.complete();
+                omakasePlayer.player.seekTo(start).subscribe(() => omakasePlayer.player.pause().subscribe());
+              }
+            });
+
+          omakasePlayer.player.seekTo(start).subscribe(() => omakasePlayer.player.play().subscribe());
+        }
+      }
+      return true;
     }
 
     return false;

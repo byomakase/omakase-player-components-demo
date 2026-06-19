@@ -17,7 +17,7 @@
 import {Component, computed, inject, input, output} from '@angular/core';
 import {IconDirective} from '../../../common/icon/icon.directive';
 import {StringUtil} from '../../../common/util/string-util';
-import {MarkerTrack, MarkerTrackService} from './marker-track.service';
+import {SidecarMarkerTrack, MarkerTrackService} from './marker-track.service';
 import {ColorSquareComponent} from '../../../common/controls/color-picker/multicolor-square.component';
 
 @Component({
@@ -27,11 +27,10 @@ import {ColorSquareComponent} from '../../../common/controls/color-picker/multic
       <div class="text-container">
         <div class="label">{{ markerTrack().label }}</div>
         <div class="lower-container">
-          @if(markerTrack().color !== 'multicolor') {
-          <div class="color-display" [style]="{'background-color': markerTrack().color}"></div>
+          @if (markerTrack().color !== 'multicolor') {
+            <div class="color-display" [style]="{'background-color': markerTrack().color}"></div>
           } @else {
-          <app-multicolor-square [colors]="markerTrackService.MULTICOLOR_COLORS"> </app-multicolor-square>
-
+            <app-multicolor-square [colors]="markerTrackService.MULTICOLOR_COLORS"> </app-multicolor-square>
           }
           <div class="url">{{ filename() }}</div>
         </div>
@@ -46,7 +45,7 @@ import {ColorSquareComponent} from '../../../common/controls/color-picker/multic
   },
 })
 export class MarkerTrackDisplay {
-  markerTrack = input.required<MarkerTrack>();
+  markerTrack = input.required<SidecarMarkerTrack>();
   markerTrackService = inject(MarkerTrackService);
   filename = computed(() => StringUtil.leafUrlToken(this.markerTrack().src));
   deleted = output<void>();

@@ -15,11 +15,11 @@
  */
 
 import {inject, Injectable, signal} from '@angular/core';
-import {OmakasePlayer, OmakasePlayerConfig} from '@byomakase/omakase-player';
+import {MainMediaType, OmakasePlayer, OmakasePlayerConfig, PlayerEventType, ThumbnailTrack, TrackSource, TrackType} from '@byomakase/omakase-player';
 import {BehaviorSubject, Observable, ReplaySubject} from 'rxjs';
 import {AbstractPlayerService} from './player.service.abstract';
 import {StampLayoutService} from '../layouts/stamp-layout/stamp-layout.service';
-import {StringUtil} from '../../common/util/string-util';
+
 @Injectable({
   providedIn: 'root',
 })
@@ -30,6 +30,7 @@ export class StampLayoutPlayerService extends AbstractPlayerService {
 
   public onCreated$: BehaviorSubject<OmakasePlayer | undefined> = new BehaviorSubject<OmakasePlayer | undefined>(undefined);
   public thumbnailTrackUrl = signal<string | undefined>(undefined);
+  public thumbnailTrack = signal<ThumbnailTrack | undefined>(undefined);
 
   private _isReloading = false;
 
@@ -44,7 +45,6 @@ export class StampLayoutPlayerService extends AbstractPlayerService {
    *
    * @param {Partial<OmakasePlayerConfig>} config
    */
-
   create(config?: Partial<OmakasePlayerConfig>): Observable<OmakasePlayer> {
     this.destroy();
 
@@ -53,25 +53,20 @@ export class StampLayoutPlayerService extends AbstractPlayerService {
     this.stampLayoutService.createStampPlayer({...config, loadVideoIfPresent: false, isMainPlayer: true}).subscribe((playerId) => {
       this._stampPlayerId = playerId;
       this._omakasePlayer = this.stampLayoutService.getPlayer(playerId);
-      this._omakasePlayer!.video.onVideoLoaded$.subscribe((videoLoadedEvent) => {
-        if (!videoLoadedEvent) {
+
+      this._omakasePlayer!.player.onEvent$.subscribe((playerEvent) => {
+        if (playerEvent.type === PlayerEventType.PLAYER_MAIN_MEDIA_LOADED) {
+          this._isMainMediaAudio = playerEvent.data.mainMediaState.mainMediaType === MainMediaType.AUDIO_FILE;
+        } else if (playerEvent.type === PlayerEventType.PLAYER_MAIN_MEDIA_UNLOADED) {
           this._isMainMediaAudio = undefined;
-          return;
-        }
-        if (videoLoadedEvent.videoLoadOptions?.protocol === 'audio') {
-          this._isMainMediaAudio = true;
-        } else {
-          this._isMainMediaAudio = false;
         }
       });
+
       this.onCreated$.next(this._omakasePlayer);
 
       this._omakasePlayer!.chroming.setWatermark('Main Media + Default Audio');
 
-      //TODO remove when support for sidecar text in stamp player is added
-      this._omakasePlayer!.subtitles.onShow$.subscribe(() => this._omakasePlayer!.subtitles.hideActiveTrack());
-
-      // @ts-ignore
+      //@ts-ignore
       window.omp = this._omakasePlayer;
       result$.next(this._omakasePlayer!);
       result$.complete();
@@ -93,7 +88,16 @@ export class StampLayoutPlayerService extends AbstractPlayerService {
     }
 
     if (url) {
-      this.omakasePlayer.chroming.setThumbnailVttUrl(url);
+      this.omakasePlayer.track
+        .load(url, {
+          trackType: TrackType.THUMBNAIL_TRACK,
+        })
+        .subscribe((track) => {
+          this.thumbnailTrack.set(track as ThumbnailTrack);
+          this.omakasePlayer!.chroming.setThumbnailTrack(TrackSource.of(track.id));
+        });
+    } else {
+      this.thumbnailTrack.set(undefined);
     }
     this.thumbnailTrackUrl.set(url);
   }
@@ -112,6 +116,8 @@ export class StampLayoutPlayerService extends AbstractPlayerService {
    */
   destroy(shouldReload = false) {
     this._isReloading = shouldReload;
+    this.thumbnailTrack.set(undefined);
+    this.thumbnailTrackUrl.set(undefined);
     if (this._omakasePlayer) {
       try {
         this.stampLayoutService.destroyStampPlayer(this._stampPlayerId!);

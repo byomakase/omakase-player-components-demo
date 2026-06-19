@@ -27,11 +27,12 @@ import {StringUtil} from '../../../common/util/string-util';
         <div class="url">{{ url() }}</div>
       </div>
       @if (isDeletable()) {
-      <i appIcon="delete" (click)="deleted.emit()"></i>
-      } @if (isLoading()) {
-      <div class="spinner-border text-primary" role="status">
-        <span class="visually-hidden"></span>
-      </div>
+        <i appIcon="delete" (click)="handleDeleted()"></i>
+      }
+      @if (isLoading()) {
+        <div class="spinner-border text-primary" role="status">
+          <span class="visually-hidden"></span>
+        </div>
       }
     </div>
   `,
@@ -46,4 +47,8 @@ export class SidecarDisplay {
   isDeletable = input(true);
   isLoading = input(false);
   deleted = output<void>();
+
+  handleDeleted() {
+    this.deleted.emit();
+  }
 }

@@ -93,6 +93,7 @@
   height: 53px;
   line-height: 53px;
   color: inherit;
+  flex-shrink: 0;
 }
 
 .omakase-marker-list-wrapper .omakase-marker-list-body .flex-cell-name {
@@ -106,6 +107,12 @@
   text-overflow: ellipsis;
   white-space: nowrap;
   padding-right: 1em;
+  flex-shrink: 1;
+}
+
+.omakase-marker-list-wrapper .omakase-marker-list-body .flex-row div img[slot='thumbnail'] {
+  max-width: 100%;
+  max-height: 100%;
 }
 
 .omakase-marker-list-wrapper .omakase-marker-list-body .flex-row div[slot='name'] omakase-inline-edit .omakase-inline-edit-readonly-text {

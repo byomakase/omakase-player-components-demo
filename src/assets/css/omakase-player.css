@@ -29,3 +29,31 @@ media-controller omakase-dropdown-toggle.active .media-chrome-audio {
   background: #662d91;
   color: #fff;
 }
+
+media-controller omakase-router-visualization .omakase-router-container.size-medium .omakase-router-toggle.active .omakase-router-toggle-inner {
+  background-color: #9159ba;
+}
+
+media-controller omakase-router-visualization .omakase-router-container.size-medium .omakase-router-toggle.active {
+  border-color: #c8a3e2;
+}
+
+media-controller omakase-router-visualization .omakase-router-container.size-medium .omakase-router-toggle {
+  border: 3px solid #eeeeee;
+}
+
+media-controller omakase-router-visualization .omakase-router-container.size-medium .omakase-router-toggle .omakase-router-toggle-inner {
+  background-color: #333333;
+}
+
+media-controller.media-controller-omakase .media-chrome-router-changed {
+  background-image: url(/assets/images/omakase-player/media-chrome-router-changed-square.svg);
+}
+
+media-controller .media-chrome-router-changed {
+  background-image: url(/assets/images/omakase-player/media-chrome-router-changed.svg);
+
+  -webkit-filter: drop-shadow(0 0 3px #c8a3e2);
+  filter: drop-shadow(0 0 3px #c8a3e2);
+}
+

@@ -194,4 +194,8 @@ export class ColorResolver {
 
     return color;
   }
+
+  reset() {
+    this._counters = this.colors.map(() => 0);
+  }
 }

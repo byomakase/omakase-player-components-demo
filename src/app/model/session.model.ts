@@ -1,4 +1,4 @@
-export type Layout = 'simple' | 'audio' | 'marker' | 'timeline' | 'stamp' | 'chromeless' | 'hybrid';
+export type Layout = 'media-handlers' | 'marker' | 'simple' | 'timeline' | 'chromeless' | 'text' | 'audio' | 'stamp';
 
 export type SidecarType = 'audio' | 'text' | 'marker' | 'thumbnail' | 'observation';
 
@@ -26,6 +26,7 @@ export interface SidecarMedia {
   label?: string;
   type: SidecarType;
   url: string;
+  engine?: string;
 }
 
 export interface Presentation {

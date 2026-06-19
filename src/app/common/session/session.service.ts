@@ -15,7 +15,7 @@
  */
 
 import {inject, Injectable} from '@angular/core';
-import {filter, forkJoin, Observable, take} from 'rxjs';
+import {filter, forkJoin, Observable, of, switchMap, take} from 'rxjs';
 import {LayoutService} from '../../components/layout-menu/layout.service';
 import {SidecarAudioService} from '../../components/fly-outs/add-sidecar-audio-fly-out/sidecar-audio-service/sidecar-audio.service';
 import {SidecarTextService} from '../../components/fly-outs/add-sidecar-text-fly-out/text-sidecar.service';
@@ -31,6 +31,8 @@ import {Constants} from '../../constants/constants';
 import {FlyOutService} from '../../components/fly-outs/fly-out.service';
 import {ColorUtil} from '../util/color-util';
 import {StringUtil} from '../util/string-util';
+import {PlayerTextHandlerType, SessionEventType, SourceType, UrlSource, WindowPlaybackMode} from '@byomakase/omakase-player';
+import {ProbingUtil} from '../util/probing-util';
 
 /**
  * Service handling layout switching inside a session. All layout switches MUST be done through this service so that all loaded media is preserved.
@@ -60,59 +62,117 @@ export class SessionService {
    */
   public changeLayoutAndReloadMedia(layout: Layout) {
     if (this.playerService.omakasePlayer) {
-      const video = this.playerService.omakasePlayer.video.getVideo();
-      const videoLoadOptions = this.playerService.omakasePlayer.video.getVideoLoadOptions();
+      const video = this.playerService.omakasePlayer.player.mainMedia;
+      const videoLoadOptions = this.playerService.omakasePlayer.player.mainMedia?.state.loadOptions;
 
       const isMainMediaAudio = this.playerService.isMainMediaAudio;
 
       const audioSidecars = this.sidecarAudioService.sidecarAudios();
-      const noUserLabelSidecarAudioIds = this.sidecarAudioService.noUserLabelSidecarAudioIds();
+      // const noUserLabelSidecarAudioIds = this.sidecarAudioService.noUserLabelSidecarAudioIds();
       const textSidecars = this.sidecarTextService.sidecarTexts();
       const thumbnailTrack = this.playerService.thumbnailTrackUrl();
+      const markerTracks = this.markerTrackService.loadedMarkerTracks();
+      this.markerTrackService.removeAllMarkerTracks();
+      const observationTracks = this.observationTrackService.loadedObservationTracks();
+      this.observationTrackService.removeAllObservationTracks();
 
-      this.playerService.destroy(true);
-      if (video) {
-        this.playerService.onCreated$
+      const attached$ = new Observable<void>((observer) => {
+        const windowPlaybackMode = this.playerService.omakasePlayer!.session.state.windowPlayback.mode;
+        if (windowPlaybackMode === WindowPlaybackMode.DETACHED) {
+          this.playerService.omakasePlayer!.attachPlayer().subscribe(() => {
+            observer.next();
+            observer.complete();
+          });
+        } else if (windowPlaybackMode === WindowPlaybackMode.DETACHING) {
+          this.playerService
+            .omakasePlayer!.session.onEvent$.pipe(
+              filter((event) => event.type === SessionEventType.SESSION_WINDOW_PLAYBACK_UPDATED),
+              take(1)
+            )
+            .subscribe(() => {
+              this.playerService.omakasePlayer!.attachPlayer().subscribe(() => {
+                observer.next();
+                observer.complete();
+              });
+            });
+        } else if (windowPlaybackMode === WindowPlaybackMode.ATTACHING) {
+          this.playerService
+            .omakasePlayer!.session.onEvent$.pipe(
+              filter((event) => event.type === SessionEventType.SESSION_WINDOW_PLAYBACK_UPDATED),
+              take(1)
+            )
+            .subscribe(() => {
+              observer.next();
+              observer.complete();
+            });
+        } else if (windowPlaybackMode === WindowPlaybackMode.FAILURE) {
+          observer.error('Window playback mode in failure state');
+          observer.complete();
+        } else {
+          observer.next();
+          observer.complete;
+        }
+      });
+
+      attached$.subscribe(() => {
+        this.playerService.destroy(true);
+        if (video && video.source.type === SourceType.URL) {
+          this.playerService.onCreated$
+            .pipe(
+              filter((p) => !!p),
+              take(1)
+            )
+            .subscribe((player) => {
+              player.loadMainMedia((video.source as UrlSource).url, videoLoadOptions).subscribe(() => {
+                if (thumbnailTrack) {
+                  this.playerService.setThumbnailTrack(thumbnailTrack);
+                }
+
+                audioSidecars.forEach((sidecar) => {
+                  // const label = noUserLabelSidecarAudioIds.includes(sidecar.id!) ? '' : sidecar.label;
+                  const label = sidecar.label;
+                  this.sidecarAudioService.addSidecarAudio({src: sidecar.src, label: label}, false);
+                });
+
+                textSidecars.forEach((sidecar) => {
+                  // const label = this.sidecarTextService.noUserLabelSidecarTextIds().includes(sidecar.id!) ? '' : sidecar.label;
+                  const label = sidecar.label;
+
+                  this.sidecarTextService.addSidecarText({src: sidecar.src, label: label, engine: sidecar.engine}, false);
+                });
+
+                markerTracks.forEach((markerTrack) => {
+                  this.markerTrackService.addMarkerTrack({src: markerTrack.src, color: markerTrack.color, readOnly: markerTrack.readOnly, label: markerTrack.label}, false);
+                });
+
+                observationTracks.forEach((observationTrack) => {
+                  this.observationTrackService.addObservationTrack(
+                    {
+                      id: observationTrack.id,
+                      src: observationTrack.src,
+                      label: observationTrack.label,
+                      visualization: observationTrack.visualization,
+                      color: observationTrack.color,
+                      minValue: observationTrack.minValue,
+                      maxValue: observationTrack.maxValue,
+                    },
+                    false
+                  );
+                });
+              });
+            });
+        }
+        this.layoutService.layout = layout;
+
+        this.layoutService.onLayoutInitialized$
           .pipe(
             filter((p) => !!p),
             take(1)
           )
-          .subscribe((player) => {
-            player.loadVideo(video.sourceUrl, videoLoadOptions!).subscribe(() => {
-              if (thumbnailTrack) {
-                this.playerService.setThumbnailTrack(thumbnailTrack);
-              }
-
-              audioSidecars.forEach((sidecar) => {
-                const label = noUserLabelSidecarAudioIds.includes(sidecar.id!) ? '' : sidecar.label;
-                this.sidecarAudioService.addSidecarAudio({src: sidecar.src, label: label}, false);
-              });
-
-              player.subtitles.onSubtitlesLoaded$
-                .pipe(
-                  filter((p) => !!p),
-                  take(1)
-                )
-                .subscribe((event) => {
-                  textSidecars.forEach((sidecar) => {
-                    const label = this.sidecarTextService.noUserLabelSidecarTextIds().includes(sidecar.id!) ? '' : sidecar.label;
-
-                    this.sidecarTextService.addSidecarText({src: sidecar.src, label: label}, false);
-                  });
-                });
-            });
+          .subscribe(() => {
+            this.playerService.create(this.layoutService.getPlayerConfiguration(isMainMediaAudio));
           });
-      }
-      this.layoutService.layout = layout;
-
-      this.layoutService.onLayoutInitialized$
-        .pipe(
-          filter((p) => !!p),
-          take(1)
-        )
-        .subscribe(() => {
-          this.playerService.create(this.layoutService.getPlayerConfiguration(isMainMediaAudio));
-        });
+      });
     } else {
       this.layoutService.layout = layout;
     }
@@ -133,6 +193,12 @@ export class SessionService {
 
     if (sessionData.presentation?.layouts.length !== undefined && sessionData.presentation?.layouts.length > 0) {
       this.layoutService.layouts = sessionData.presentation.layouts;
+      if (this.layoutService.layouts.length === 0) {
+        this.toastService.show({message: 'Session configuration failed - no supported layouts', type: 'error', duration: 5000});
+        return;
+      } else if (this.layoutService.layouts.length !== sessionData.presentation.layouts.length) {
+        this.toastService.show({message: 'Some of the layouts are not supported', type: 'warning', duration: 5000});
+      }
       this.layoutService.layout = this.layoutService.layouts.at(0)!;
     }
 
@@ -153,7 +219,7 @@ export class SessionService {
 
           this.playerService.create(this.layoutService.getPlayerConfiguration(isMainMediaAudio)).subscribe((player) => {
             player
-              .loadVideo(mainMedia.url, {
+              .loadMainMedia(mainMedia.url, {
                 frameRate: mainMedia.frame_rate,
                 ffom: mainMedia.ffom,
                 dropFrame: mainMedia.drop_frame,
@@ -176,14 +242,24 @@ export class SessionService {
     const sidecarTexts = sidecarMedias.filter((sidecarMedia) => sidecarMedia.type === 'text');
     const markerTracks = sidecarMedias.filter((sidecarMedia) => sidecarMedia.type === 'marker');
     const observationTracks = sidecarMedias.filter((sidecarMedia) => sidecarMedia.type === 'observation');
-
     if (thumbnailMedia) {
       this.playerService.setThumbnailTrack(thumbnailMedia.url);
     }
-
     const audiosLoaded$ = sidecarAudios.map((sidecarAudio) => this.sidecarAudioService.addSidecarAudio({src: sidecarAudio.url, label: sidecarAudio.label}, false));
-    const textsLoaded$ = sidecarTexts.map((sidecarText) => this.sidecarTextService.addSidecarText({src: sidecarText.url, label: sidecarText.label}, false));
-
+    const textsLoaded$ = sidecarTexts.map((sidecarText) => {
+      const engine$ = sidecarText.engine
+        ? of(sidecarText.engine as PlayerTextHandlerType)
+        : ProbingUtil.resolveTextEngine(this.playerService.omakasePlayer!, sidecarText.url);
+      return engine$.pipe(
+        switchMap((playerTextHandlerType) => {
+          if (playerTextHandlerType) {
+            return this.sidecarTextService.addSidecarText({src: sidecarText.url, label: sidecarText.label, engine: playerTextHandlerType}, false);
+          } else {
+            return of(false);
+          }
+        })
+      );
+    });
     markerTracks.forEach((markerTrack) => {
       let color;
       let readOnly;
@@ -196,7 +272,6 @@ export class SessionService {
         false
       );
     });
-
     observationTracks.forEach((observationTrack) => {
       const id = observationTrack.id ?? crypto.randomUUID();
       const visualization = this.resolveVisualization(trackVisualizations?.get(id)?.chart_type);
@@ -214,13 +289,11 @@ export class SessionService {
         false
       );
     });
-
     forkJoin([...audiosLoaded$, ...textsLoaded$]).subscribe((results: boolean[]) => {
       const allTrue = results.every((r) => r === true);
       const allFalse = results.every((r) => r === false);
       const someFalse = results.includes(false);
       const someTrue = results.includes(true);
-
       if (allTrue) {
         this.toastService.show({message: 'Session configured successfully', type: 'success', duration: 5000});
       } else if (allFalse) {

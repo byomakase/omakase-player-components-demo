@@ -15,10 +15,11 @@
  */
 
 import {Component, inject, OnDestroy, signal} from '@angular/core';
-import {Subject, takeUntil} from 'rxjs';
+import {filter, Subject, takeUntil} from 'rxjs';
 import {IconDirective} from '../../../common/icon/icon.directive';
 import {FlyOutService} from '../fly-out.service';
 import {PlayerService} from '../../player/player.service';
+import {PlayerEventType} from '@byomakase/omakase-player';
 @Component({
   selector: 'div[fly-out-menu]',
   imports: [IconDirective],
@@ -51,13 +52,16 @@ export class FlyOutMenu implements OnDestroy {
   constructor() {
     this.playerService.onCreated$.pipe(takeUntil(this.destroyed$)).subscribe((player) => {
       if (player) {
-        player.video.onVideoLoaded$.pipe(takeUntil(this.destroyed$)).subscribe((videoLoadedEvent) => {
-          if (videoLoadedEvent) {
-            this.isVideoLoaded.set(true);
-          } else {
-            this.isVideoLoaded.set(false);
-          }
-        });
+        player.player.onEvent$
+          .pipe(filter((event) => event.type === PlayerEventType.PLAYER_MAIN_MEDIA_LOADED))
+          .pipe(takeUntil(this.destroyed$))
+          .subscribe((videoLoadedEvent) => {
+            if (videoLoadedEvent) {
+              this.isVideoLoaded.set(true);
+            } else {
+              this.isVideoLoaded.set(false);
+            }
+          });
       }
     });
   }

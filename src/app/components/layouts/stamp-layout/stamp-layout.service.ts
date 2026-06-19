@@ -15,16 +15,15 @@
  */
 
 import {computed, inject, Injectable, signal} from '@angular/core';
-import {OmakasePlayer, OmakasePlayerConfig, Video, VideoLoadOptions} from '@byomakase/omakase-player';
 import {filter, Observable, Subject, take} from 'rxjs';
 import {PlayerService} from '../../player/player.service';
 import {LayoutService} from '../../layout-menu/layout.service';
-import {DefaultChroming, StampChroming} from '@byomakase/omakase-player/dist/player-chroming/model';
+import {MainMedia, MainMediaLoadOptions, OmakasePlayer, OmakasePlayerConfig, PlayerEventType, SourceUtil} from '@byomakase/omakase-player';
 
-export interface StampPlayerConfig extends Partial<OmakasePlayerConfig> {
+export type StampPlayerConfig = Partial<OmakasePlayerConfig> & {
   loadVideoIfPresent: boolean;
   isMainPlayer: boolean;
-}
+};
 
 @Injectable({
   providedIn: 'root',
@@ -48,8 +47,8 @@ export class StampLayoutService {
   private _isMainPlayerOnPlayAdded = false;
   private _mainPlayerId?: string;
 
-  private _video: Video | undefined = undefined;
-  private _videoLoadOptions: VideoLoadOptions | undefined = undefined;
+  private _media: MainMedia | undefined = undefined;
+  private _mediaLoadOptions: MainMediaLoadOptions | undefined = undefined;
 
   private playerService = inject(PlayerService);
   private layoutService = inject(LayoutService);
@@ -74,19 +73,18 @@ export class StampLayoutService {
     let finalConfig: StampPlayerConfig = {
       ...this.layoutService.getPlayerConfiguration(),
       ...config,
-      playerChroming: this.layoutService.getPlayerConfiguration().playerChroming,
-    };
+    } as StampPlayerConfig;
 
-    if (config.playerChroming) {
-      finalConfig = {
-        ...finalConfig,
-        playerChroming: {
-          ...finalConfig.playerChroming,
-          ...config.playerChroming,
-          theme: 'STAMP',
-        } as StampChroming,
-      };
-    }
+    // if (config.playerChroming) {
+    //   finalConfig = {
+    //     ...finalConfig,
+    //     playerChroming: {
+    //       ...finalConfig.playerChroming,
+    //       ...config.playerChroming,
+    //       theme: 'STAMP',
+    //     } as StampChroming,
+    //   };
+    // }
 
     id = this.requestStampPlayerCreation(finalConfig);
 
@@ -103,15 +101,15 @@ export class StampLayoutService {
         take(1)
       )
       .subscribe(() => {
-        const video = this._video;
-        const videoLoadOptions = this._videoLoadOptions;
-        const player = this.playersById().get(id)!;
+        const media = this._media;
+        const mediaLoadOptions = this._mediaLoadOptions;
+        const omakasePlayer = this.playersById().get(id)!;
 
-        if (config.loadVideoIfPresent && video && videoLoadOptions) {
-          player.loadVideo(video.sourceUrl, videoLoadOptions).subscribe(() => {
-            const thumbnailTrackUrl = this.playerService.thumbnailTrackUrl();
-            if (thumbnailTrackUrl) {
-              player.chroming.setThumbnailVttUrl(thumbnailTrackUrl);
+        if (config.loadVideoIfPresent && media && mediaLoadOptions) {
+          omakasePlayer.loadMainMedia(SourceUtil.resolveUrlFromSource(media.source), mediaLoadOptions).subscribe(() => {
+            const thumbnailUrl = this.playerService.thumbnailTrackUrl();
+            if (thumbnailUrl) {
+              omakasePlayer.chroming.setThumbnailTrack(thumbnailUrl);
             }
             result$.next(id);
             result$.complete();
@@ -164,7 +162,7 @@ export class StampLayoutService {
    */
   private requestStampPlayerCreation(config: Partial<OmakasePlayerConfig>) {
     const id = crypto.randomUUID();
-    this.setPlayerConfigByPendingPlayerId(id, {...config, playerHTMLElementId: id});
+    this.setPlayerConfigByPendingPlayerId(id, {...config, playerHtmlElementId: id});
     return id;
   }
 
@@ -180,11 +178,11 @@ export class StampLayoutService {
    * Loads main media from the main player to all other stamp players
    */
   private loadMainMedia() {
-    if (this._video && this._mainPlayerId) {
+    if (this._media && this._mainPlayerId) {
       [...this.playersById().values()]
-        .filter((player) => player !== this.playersById().get(this._mainPlayerId!))
-        .forEach((player) => {
-          player.loadVideo(this._video!.sourceUrl, this._videoLoadOptions);
+        .filter((omakasePlayer) => omakasePlayer !== this.playersById().get(this._mainPlayerId!))
+        .forEach((omakasePlayer) => {
+          omakasePlayer.loadMainMedia(SourceUtil.resolveUrlFromSource(this._media!.source), this._mediaLoadOptions);
         });
     }
   }
@@ -193,17 +191,19 @@ export class StampLayoutService {
    * Notifies the service that the requested player has been successfully created
    *
    * @param id
-   * @param player
+   * @param omakasePlayer
    */
-  public registerStampPlayer(id: string, player: OmakasePlayer) {
-    this.setPlayerById(id, player);
+  public registerStampPlayer(id: string, omakasePlayer: OmakasePlayer) {
     this.deletePlayerConfigByPendingPlayerId(id);
 
+    this.setPlayerById(id, omakasePlayer);
+
     if (id === this._mainPlayerId) {
-      player.video.onVideoLoaded$.subscribe((videoLoadedEvent) => {
-        if (videoLoadedEvent) {
-          this._video = videoLoadedEvent.video;
-          this._videoLoadOptions = videoLoadedEvent.videoLoadOptions;
+      omakasePlayer.player.onEvent$.pipe(filter((event) => event.type === PlayerEventType.PLAYER_MAIN_MEDIA_LOADED)).subscribe((event) => {
+        const mainMedia = omakasePlayer.player.mainMedia;
+        if (mainMedia) {
+          this._media = mainMedia;
+          this._mediaLoadOptions = event.data.mainMediaState.loadOptions;
           this.loadMainMedia();
         }
       });
@@ -234,8 +234,8 @@ export class StampLayoutService {
 
     this.onReset$.next();
 
-    this._video = undefined;
-    this._videoLoadOptions = undefined;
+    this._media = undefined;
+    this._mediaLoadOptions = undefined;
   }
 
   private setPlayerById(playerId: string, player: OmakasePlayer) {

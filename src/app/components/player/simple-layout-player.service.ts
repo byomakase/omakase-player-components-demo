@@ -15,7 +15,7 @@
  */
 
 import {Injectable, signal} from '@angular/core';
-import {OmakasePlayer, OmakasePlayerConfig} from '@byomakase/omakase-player';
+import {OmakasePlayer, OmakasePlayerConfig, PlayerEventType, ThumbnailTrack, TrackSource, TrackType} from '@byomakase/omakase-player';
 import {BehaviorSubject, filter, Observable, take} from 'rxjs';
 import {AbstractPlayerService} from './player.service.abstract';
 @Injectable({
@@ -27,6 +27,7 @@ export class SimpleLayoutPlayerService extends AbstractPlayerService {
 
   public onCreated$: BehaviorSubject<OmakasePlayer | undefined> = new BehaviorSubject<OmakasePlayer | undefined>(undefined);
   public thumbnailTrackUrl = signal<string | undefined>(undefined);
+  public thumbnailTrack = signal<ThumbnailTrack | undefined>(undefined);
 
   private _isReloading = false;
 
@@ -43,16 +44,23 @@ export class SimpleLayoutPlayerService extends AbstractPlayerService {
     this.destroy();
     this._omakasePlayer = new OmakasePlayer(config);
 
-    this._omakasePlayer.video.onVideoLoaded$.subscribe((videoLoadedEvent) => {
-      if (!videoLoadedEvent) {
-        this._isMainMediaAudio = undefined;
-        return;
+    this._omakasePlayer.player.onEvent$.subscribe((playerEvent) => {
+      // When media is reloaded on the same player instance, loadMainMedia unloads the old thumbnail track.
+      // Clear the stale reference here so consumers (e.g. marker list) never resolve a removed track id,
+      // which would throw "Wrong track type used for thumbnailTrack". setThumbnailTrack re-populates it after load.
+      if (playerEvent.type === PlayerEventType.PLAYER_MAIN_MEDIA_UNLOADING) {
+        this.thumbnailTrack.set(undefined);
       }
-      if (videoLoadedEvent.video.protocol === 'audio') {
-        this._isMainMediaAudio = true;
-      } else {
-        this._isMainMediaAudio = false;
-      }
+      if (playerEvent.type === PlayerEventType.PLAYER_MAIN_MEDIA_LOADED)
+        if (!playerEvent) {
+          this._isMainMediaAudio = undefined;
+          return;
+        }
+      // if (playerEvent.video.protocol === 'audio') {
+      //   this._isMainMediaAudio = true;
+      // } else {
+      //   this._isMainMediaAudio = false;
+      // }
     });
 
     this.onCreated$.next(this._omakasePlayer);
@@ -78,7 +86,17 @@ export class SimpleLayoutPlayerService extends AbstractPlayerService {
     }
 
     if (url) {
-      this.omakasePlayer.chroming.setThumbnailVttUrl(url);
+      this.omakasePlayer.track
+        .load(url, {
+          trackType: TrackType.THUMBNAIL_TRACK,
+        })
+        .subscribe((track) => {
+          this.thumbnailTrack.set(track as ThumbnailTrack);
+          this.omakasePlayer!.chroming.setThumbnailTrack(TrackSource.of(track.id));
+          // this.omakasePlayer!.chroming.setThumbnailTrack(url);
+        });
+    } else {
+      this.thumbnailTrack.set(undefined);
     }
     this.thumbnailTrackUrl.set(url);
   }
@@ -97,6 +115,8 @@ export class SimpleLayoutPlayerService extends AbstractPlayerService {
    */
   destroy(shouldReload = false) {
     this._isReloading = shouldReload;
+    this.thumbnailTrack.set(undefined);
+    this.thumbnailTrackUrl.set(undefined);
     if (this._omakasePlayer) {
       try {
         this._omakasePlayer.destroy();

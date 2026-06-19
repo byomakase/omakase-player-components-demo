@@ -29,8 +29,8 @@ import {Layout} from '../../model/session.model';
         <i appIcon="menu"> </i>
       </div>
       <div class="layout-menu" ngbDropdownMenu>
-        @for(layout of layouts(); track layout) {
-        <button ngbDropdownItem (click)="sessionService.changeLayoutAndReloadMedia(layout)">{{ layoutLabels[layout] }}</button>
+        @for (layout of layouts(); track layout) {
+          <button ngbDropdownItem (click)="sessionService.changeLayoutAndReloadMedia(layout)">{{ layoutLabels[layout] }}</button>
         }
       </div>
     </div>
@@ -41,13 +41,14 @@ export class LayoutMenu {
   public sessionService = inject(SessionService);
   public layouts = signal<Layout[]>([]);
   public layoutLabels: Record<Layout, string> = {
+    'media-handlers': 'Media Handlers Layout',
     'simple': 'Simple Layout',
     'audio': 'Audio Layout',
     'marker': 'Marker Layout',
     'timeline': 'Timeline Layout',
-    'stamp': 'Stamp Layout',
     'chromeless': 'Chromeless Layout',
-    'hybrid': 'Hybrid Layout',
+    'text': 'Text Layout',
+    'stamp': 'Stamp Layout',
   };
 
   constructor() {

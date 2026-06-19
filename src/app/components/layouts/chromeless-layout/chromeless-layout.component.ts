@@ -16,20 +16,15 @@
 
 import {AfterViewInit, Component, CUSTOM_ELEMENTS_SCHEMA, inject, signal} from '@angular/core';
 import {PlayerComponent} from '../../player/player.component';
-import {toObservable} from '@angular/core/rxjs-interop';
-import {MarkerTrackApi, MomentMarker, PeriodMarker, VideoSafeZone} from '@byomakase/omakase-player';
-import {Subject, filter, take, takeUntil, skip, merge, BehaviorSubject} from 'rxjs';
-import {MarkerTrackService, MarkerTrack} from '../../fly-outs/add-markers-fly-out/marker-track.service';
+import {Subject, filter, merge, BehaviorSubject, switchMap, tap, EMPTY} from 'rxjs';
+import {MarkerTrackService} from '../../fly-outs/add-markers-fly-out/marker-track.service';
 import {PlayerService} from '../../player/player.service';
-import {ColorService} from '../../../common/services/color.service';
-import tr from 'zod/v4/locales/tr.cjs';
 import {FormControl, ReactiveFormsModule} from '@angular/forms';
 import {timecodeValidator} from '../../../common/validators/timecode-validator';
-import pl from 'zod/v4/locales/pl.cjs';
-import {KnobWrapperComponent} from '../../../common/controls/knob/knob.component';
 import {SidecarTextSelectComponent} from '../../../common/controls/text-select/text-select.component';
 import {TimecodeDisplay} from '../../../common/timecode-display/timecode-display.component';
 import {SidecarAudioSelectComponent} from '../../../common/controls/audio-select/audio-select.component';
+import {AudioHandlerEventType, MediaTemporalFormat, PlayerAudioEventType, PlayerAudioType, PlayerEventType, PlayerTextEventType, VideoSafeZone} from '@byomakase/omakase-player';
 
 type PlayControlState = 'play' | 'pause';
 type TextVisibilityState = 'show' | 'hide';
@@ -51,23 +46,29 @@ type SafeZoneRatio = 'title-safe' | 'action-safe';
       <div class="lower-control-panel">
         <div class="select-container">
           @if (audioSelectVisible()) {
-          <div class="select-wrapper">
-            <div class="select-label">Audio</div>
-            <app-audio-select />
-          </div>
-
-          } @if (textSelectVisible()) {
-          <div class="select-wrapper">
-            <div class="select-label">Text</div>
-            <app-text-select />
-          </div>
+            <div class="select-wrapper">
+              <div class="select-label">Audio</div>
+              <app-audio-select />
+            </div>
+          }
+          @if (textSelectVisible()) {
+            <div class="select-wrapper">
+              <div class="select-label">Text</div>
+              <app-text-select />
+            </div>
           }
         </div>
         <app-timecode-display [timecode$]="timecode$" />
       </div>
     </div>
     <div class="right-side">
-      <button [disabled]="playControlButtonDisabled()" class="control-button" (click)="togglePlayPause()">@if(playControlState() === 'play'){ Play } @else { Pause }</button>
+      <button [disabled]="playControlButtonDisabled()" class="control-button" (click)="togglePlayPause()">
+        @if (playControlState() === 'play') {
+          Play
+        } @else {
+          Pause
+        }
+      </button>
       <button [disabled]="stepOneFrameForwardsDisabled()" class="control-button long" (click)="stepNFrames(1)">Step 1 frame forwards</button>
       <button [disabled]="stepOneFrameBackwardsDisabled()" class="control-button long" (click)="stepNFrames(-1)">Step 1 frame backwards</button>
       <div class="jump-to-control-wrapper">
@@ -75,23 +76,47 @@ type SafeZoneRatio = 'title-safe' | 'action-safe';
         <input [formControl]="timecodeFormControl" type="text" />
       </div>
       <div class="safezone-wrapper">
-        <button [disabled]="safeZoneDisabled()" class="control-button" (click)="toggleSafeZone()">@if(isSafeZoneSet()) {Hide Safezone} @else {Show Safezone}</button>
+        <button [disabled]="safeZoneDisabled()" class="control-button" (click)="toggleSafeZone()">
+          @if (isSafeZoneSet()) {
+            Hide Safezone
+          } @else {
+            Show Safezone
+          }
+        </button>
         <select [formControl]="safeZoneFormControl">
-          @for(option of safeZoneOptions; track option.at(0)) {
-          <option [value]="option.at(0)">{{ option.at(1) }}</option>
+          @for (option of safeZoneOptions; track option.at(0)) {
+            <option [value]="option.at(0)">{{ option.at(1) }}</option>
           }
         </select>
       </div>
       <div class="two-column-container">
         <div class="column">
-          <select [disabled]="playbackRateDisabled()" [formControl]="playbackRateFormControl">
-            @for(playbackRate of playbackRates; track playbackRate) {
-            <option [value]="playbackRate">{{ playbackRate }}x</option>
+          <select [formControl]="playbackRateFormControl">
+            @for (playbackRate of playbackRates; track playbackRate) {
+              <option [value]="playbackRate">{{ playbackRate }}x</option>
             }
           </select>
-          <button [disabled]="textVisibilityButtonDisabled()" class="control-button" (click)="toggleTextVisibility()">@if(textVisibilityState() === 'show'){ Hide Text } @else { Show Text }</button>
-          <button class="control-button" [disabled]="muteDisabled()" (click)="toggleMute()">@if(muteState() === 'mute'){Unmute} @else {Mute}</button>
-          <button [disabled]="pipDisabled()" (click)="togglePip()" class="control-button">@if(pipState() === 'active') {Deactivate PiP} @else {Activate PiP}</button>
+          <button [disabled]="textVisibilityButtonDisabled()" class="control-button" (click)="toggleTextVisibility()">
+            @if (textVisibilityState() === 'show') {
+              Hide Text
+            } @else {
+              Show Text
+            }
+          </button>
+          <button class="control-button" [disabled]="muteDisabled()" (click)="toggleMute()">
+            @if (muteState() === 'mute') {
+              Unmute
+            } @else {
+              Mute
+            }
+          </button>
+          <button [disabled]="pipDisabled()" (click)="togglePip()" class="control-button">
+            @if (pipState() === 'active') {
+              Deactivate PiP
+            } @else {
+              Activate PiP
+            }
+          </button>
           <button [disabled]="fullScreenDisabled()" (click)="toggleFullScreen()" class="control-button">Full Screen</button>
         </div>
         <div class="column volume-control-column">
@@ -119,9 +144,8 @@ export class ChromelessLayoutComponent implements AfterViewInit {
   public timecodeFormControl = new FormControl<string>('', [timecodeValidator(undefined, false)]);
   public jumpDisabled = signal<boolean>(true);
 
-  public playbackRateFormControl = new FormControl<PlaybackRate>(1);
+  public playbackRateFormControl = new FormControl<PlaybackRate>({value: 1, disabled: true});
   public playbackRates = [0.25, 0.5, 0.75, 1, 2, 4, 8];
-  public playbackRateDisabled = signal<boolean>(true);
 
   public textVisibilityButtonDisabled = signal(true);
   public textVisibilityState = signal<TextVisibilityState>('hide');
@@ -139,7 +163,7 @@ export class ChromelessLayoutComponent implements AfterViewInit {
   public pipDisabled = signal(true);
   public pipState = signal<PipState>('inactive');
 
-  public safeZoneFormControl = new FormControl<SafeZoneRatio>('action-safe');
+  public safeZoneFormControl = new FormControl<SafeZoneRatio>({value: 'action-safe', disabled: true});
   public safeZoneDisabled = signal(true);
   public safeZoneOptions = new Map<SafeZoneRatio, string>([
     ['action-safe', 'Action Safe'],
@@ -150,6 +174,7 @@ export class ChromelessLayoutComponent implements AfterViewInit {
   public fullScreenDisabled = signal(true);
 
   private playerService = inject(PlayerService);
+  private _playerEventTypesOfInterest = new Set([PlayerEventType.PLAYER_PLAY, PlayerEventType.PLAYER_PAUSE, PlayerEventType.PLAYER_PLAYBACK_PROGRESS, PlayerEventType.PLAYER_MAIN_MEDIA_UNLOADING]);
 
   ngOnDestroy(): void {
     this.destroyed$.next();
@@ -158,125 +183,137 @@ export class ChromelessLayoutComponent implements AfterViewInit {
 
   ngAfterViewInit(): void {
     this.volumeFormControl.disable();
+
+    this.playerService
+      .observeMediaLoads(this.destroyed$)
+      .pipe(
+        switchMap((omakasePlayer) => {
+          if (!omakasePlayer) {
+            this.disableControls();
+            return EMPTY;
+          }
+          this.enableControls();
+
+          this.timecodeFormControl.setValidators([timecodeValidator(omakasePlayer.player.mainMedia?.frameRateModel?.value, Boolean(omakasePlayer.player.mainMedia?.frameRateModel?.dropFrames))]);
+          this.resolveTextSelectVisibility();
+
+          return merge(
+            omakasePlayer.player.onEvent$.pipe(
+              filter((event) => this._playerEventTypesOfInterest.has(event.type)),
+              tap((event) => {
+                switch (event.type) {
+                  case PlayerEventType.PLAYER_PLAYBACK_PROGRESS:
+                    this.handlePlayerPlaybackProgress();
+                    return;
+                  case PlayerEventType.PLAYER_PAUSE:
+                    this.handlePlayerPause();
+                    return;
+                  case PlayerEventType.PLAYER_PLAY:
+                    this.handlePlayerPlay();
+                    return;
+                  case PlayerEventType.PLAYER_MAIN_MEDIA_UNLOADING:
+                    this.disableControls();
+                    return;
+                }
+              })
+            ),
+
+            omakasePlayer.player.text.onEvent$.pipe(
+              tap((event) => {
+                switch (event.type) {
+                  case PlayerTextEventType.PLAYER_TEXT_TRACK_LOADED:
+                    this.textVisibilityButtonDisabled.set(false);
+                    this.resolveTextSelectVisibility();
+                    return;
+                  case PlayerTextEventType.PLAYER_TEXT_TRACK_UNLOADED:
+                    this.resolveTextSelectVisibility();
+                    return;
+                  case PlayerTextEventType.PLAYER_TEXT_CHANGE:
+                    this.textVisibilityState.set(event.data.playerText.shown ? 'show' : 'hide');
+                    return;
+                }
+              })
+            ),
+
+            omakasePlayer.player.audio.onEvent$.pipe(
+              tap((event) => {
+                switch (event.type) {
+                  case PlayerAudioEventType.PLAYER_AUDIO_TRACK_LOADED:
+                  case PlayerAudioEventType.PLAYER_AUDIO_TRACK_UNLOADED:
+                    this.resolveAudioSelectVisibility();
+                    break;
+                }
+              })
+            ),
+
+            omakasePlayer.player.audio.getHandler(PlayerAudioType.OUTPUT)!.onEvent$.pipe(
+              tap((event) => {
+                if (event.type === AudioHandlerEventType.AUDIO_HANDLER_CHANGE) {
+                  this.muteState.set(event.data.state.muted ? 'mute' : 'unmute');
+                  this.volumeFormControl.setValue(event.data.state.volume, {emitEvent: false});
+                }
+              })
+            ),
+
+            this.timecodeFormControl.valueChanges.pipe(tap(() => this.resolveJumpDisable())),
+
+            this.playbackRateFormControl.valueChanges.pipe(
+              tap((playbackRate) => {
+                if (playbackRate) {
+                  omakasePlayer.player.setPlaybackRate(playbackRate);
+                }
+              })
+            ),
+
+            this.volumeFormControl.valueChanges.pipe(
+              tap((volume) => {
+                if (volume !== null) {
+                  this.playerService.omakasePlayer!.player.audio.getHandler(PlayerAudioType.OUTPUT)!.setVolume(volume);
+                }
+              })
+            ),
+
+            this.safeZoneFormControl.valueChanges.pipe(
+              tap(() => {
+                if (this.isSafeZoneSet()) {
+                  this.toggleSafeZone();
+                  this.toggleSafeZone();
+                }
+              })
+            )
+          );
+        })
+      )
+      .subscribe();
   }
 
-  constructor() {
-    this.playerService.onCreated$
-      .pipe(
-        filter((p) => !!p),
-        take(1),
-        takeUntil(this.destroyed$)
-      )
-      .subscribe((player) => {
-        player.video.onVideoLoaded$.pipe(takeUntil(this.destroyed$)).subscribe((videoLoadedEvent) => {
-          if (!videoLoadedEvent) {
-            this.playControlButtonDisabled.set(true);
-            this.stepOneFrameForwardsDisabled.set(true);
-            this.stepOneFrameBackwardsDisabled.set(true);
-            this.playbackRateDisabled.set(true);
-            this.textVisibilityButtonDisabled.set(true);
-            this.muteDisabled.set(true);
-            this.pipDisabled.set(true);
-            this.volumeFormControl.disable();
-            this.safeZoneDisabled.set(true);
-            this.fullScreenDisabled.set(true);
-          } else {
-            this.playControlButtonDisabled.set(false);
-            this.stepOneFrameForwardsDisabled.set(false);
-            this.playbackRateDisabled.set(false);
-            this.playControlState.set('play');
-            this.muteDisabled.set(false);
-            this.pipDisabled.set(false);
-            this.volumeFormControl.enable();
-            this.safeZoneDisabled.set(false);
-            this.timecodeFormControl.setValue(this.resolveInitialTimecode());
-            this.timecode$.next(this.resolveInitialTimecode());
-            this.fullScreenDisabled.set(false);
+  private enableControls() {
+    this.playControlButtonDisabled.set(false);
+    this.stepOneFrameForwardsDisabled.set(false);
+    this.playbackRateFormControl.enable();
+    this.playControlState.set('play');
+    this.muteDisabled.set(false);
+    this.pipDisabled.set(false);
+    this.volumeFormControl.enable();
+    this.safeZoneDisabled.set(false);
+    this.safeZoneFormControl.enable();
+    this.timecodeFormControl.setValue(this.resolveInitialTimecode());
+    this.timecode$.next(this.resolveInitialTimecode());
+    this.fullScreenDisabled.set(false);
+  }
 
-            // track time change event
-            player.video.onVideoTimeChange$.pipe(takeUntil(this.destroyed$)).subscribe((videoTimeChangeEvent) => {
-              if (videoTimeChangeEvent.frame === 0) {
-                this.stepOneFrameBackwardsDisabled.set(true);
-              } else {
-                this.stepOneFrameBackwardsDisabled.set(false);
-              }
-              if (videoTimeChangeEvent.frame === videoLoadedEvent.video.totalFrames) {
-                this.stepOneFrameForwardsDisabled.set(true);
-              } else {
-                this.stepOneFrameForwardsDisabled.set(false);
-              }
-            });
-
-            //track play pause events
-            player.video.onPlay$.pipe(takeUntil(this.destroyed$)).subscribe(() => this.handlePlayerPlay());
-            player.video.onPause$.pipe(takeUntil(this.destroyed$)).subscribe(() => this.handlePlayerPause());
-
-            //set up correct timecode validator
-            this.timecodeFormControl.setValidators([timecodeValidator(videoLoadedEvent.video.frameRate, videoLoadedEvent.video.dropFrame)]);
-
-            this.timecodeFormControl.valueChanges.subscribe(() => this.resolveJumpDisable());
-
-            this.playbackRateFormControl.valueChanges.subscribe((playbackRate) => {
-              if (playbackRate) {
-                player.video.setPlaybackRate(playbackRate);
-              }
-            });
-
-            // track subtitle creation and visibility
-            player.subtitles.onCreate$.pipe(takeUntil(this.destroyed$)).subscribe(() => {
-              this.textVisibilityButtonDisabled.set(false);
-              this.resolveTextSelectVisibility();
-            });
-
-            player.subtitles.onSubtitlesLoaded$.subscribe(() => {
-              this.resolveTextSelectVisibility();
-            });
-
-            player.subtitles.onShow$.pipe(takeUntil(this.destroyed$)).subscribe(() => {
-              this.textVisibilityState.set('show');
-            });
-
-            player.subtitles.onHide$.pipe(takeUntil(this.destroyed$)).subscribe(() => {
-              this.textVisibilityState.set('hide');
-            });
-
-            // track track selection option
-            merge(player.audio.onAudioLoaded$, player.audio.onSidecarAudioLoaded$, player.audio.onSidecarAudioRemove$).subscribe(() => this.resolveAudioSelectVisibility());
-            merge(player.subtitles.onCreate$, player.subtitles.onRemove$).subscribe(() => {
-              this.resolveTextSelectVisibility();
-            });
-
-            //track mute state and volume
-            player.audio.onAudioOutputVolumeChange$.subscribe((outputVolumeChangeEvent) => {
-              if (outputVolumeChangeEvent.muted) {
-                this.muteState.set('mute');
-              } else {
-                this.muteState.set('unmute');
-              }
-            });
-
-            //sync slider
-            this.volumeFormControl.valueChanges.subscribe((volume) => {
-              if (volume === null) {
-                return;
-              }
-              this.playerService.omakasePlayer!.audio.setAudioOutputVolume(volume);
-            });
-
-            //sync timecode
-            player.video.onVideoTimeChange$.subscribe((videoTimeChangeEvent) => {
-              this.timecode$.next(player.video.getCurrentTimecode());
-            });
-
-            this.safeZoneFormControl.valueChanges.subscribe((value) => {
-              if (this.isSafeZoneSet()) {
-                this.toggleSafeZone();
-                this.toggleSafeZone();
-              }
-            });
-          }
-        });
-      });
+  private disableControls() {
+    this.playControlButtonDisabled.set(true);
+    this.stepOneFrameForwardsDisabled.set(true);
+    this.stepOneFrameBackwardsDisabled.set(true);
+    this.playbackRateFormControl.disable();
+    this.textVisibilityButtonDisabled.set(true);
+    this.muteDisabled.set(true);
+    this.pipDisabled.set(true);
+    this.volumeFormControl.disable();
+    this.safeZoneDisabled.set(true);
+    this.safeZoneFormControl.disable();
+    this.fullScreenDisabled.set(true);
   }
 
   private handlePlayerPause() {
@@ -289,44 +326,65 @@ export class ChromelessLayoutComponent implements AfterViewInit {
     this.resolveJumpDisable();
   }
 
+  private handlePlayerPlaybackProgress() {
+    const omakasePlayer = this.playerService.omakasePlayer!;
+    const frame = omakasePlayer.player.convertTime(omakasePlayer.player.getCurrentTime(), MediaTemporalFormat.SECONDS, MediaTemporalFormat.FRAME_COUNT);
+    if (frame === 0) {
+      this.stepOneFrameBackwardsDisabled.set(true);
+    } else {
+      this.stepOneFrameBackwardsDisabled.set(false);
+    }
+    if (frame === omakasePlayer.player.convertTime(omakasePlayer.player.mainMedia!.duration!, MediaTemporalFormat.SECONDS, MediaTemporalFormat.FRAME_COUNT)) {
+      this.stepOneFrameForwardsDisabled.set(true);
+    } else {
+      this.stepOneFrameForwardsDisabled.set(false);
+    }
+
+    this.timecode$.next(omakasePlayer.player.convertTime(omakasePlayer.player.getCurrentTime(), MediaTemporalFormat.SECONDS, MediaTemporalFormat.TIMECODE));
+  }
+
   private resolveAudioSelectVisibility() {
-    const numberOfEmbeddedAudios = this.playerService.omakasePlayer!.audio.getAudioTracks().length;
-    const numberOfSidecarAudios = this.playerService.omakasePlayer!.audio.getSidecarAudioTracks().length;
+    const numberOfEmbeddedAudios = this.playerService.omakasePlayer!.player.audio.state.tracks[PlayerAudioType.MAIN].length;
+    const numberOfSidecarAudios = this.playerService.omakasePlayer!.player.audio.state.tracks[PlayerAudioType.SIDECAR].length;
 
     const isVisible = numberOfEmbeddedAudios + numberOfSidecarAudios > 1;
     this.audioSelectVisible.set(isVisible);
   }
 
   private resolveTextSelectVisibility() {
-    const isVisible = this.playerService.omakasePlayer!.subtitles.getTracks().length > 1;
+    const isVisible = this.playerService.omakasePlayer!.player.text.getTracks().length > 1;
     this.textSelectVisible.set(isVisible);
   }
 
   private resolveJumpDisable() {
-    if (this.playerService.omakasePlayer?.video && this.timecodeFormControl.valid) {
-      const video = this.playerService.omakasePlayer.video.getVideo()!;
-      const isPaused = this.playerService.omakasePlayer.video.isPaused();
-      const timecode = this.timecodeFormControl.value!;
-      const frame = this.playerService.omakasePlayer!.video.parseTimecodeToFrame(timecode);
-      const isFrameValid = frame < video.totalFrames;
+    const omakasePlayer = this.playerService.omakasePlayer;
+    if (omakasePlayer && omakasePlayer.player.mainMedia && this.timecodeFormControl.valid) {
+      try {
+        const isPaused = omakasePlayer.player.playerSession.playback.paused;
+        const timecode = this.timecodeFormControl.value!;
+        const frame = omakasePlayer.player.convertTime(timecode, MediaTemporalFormat.TIMECODE, MediaTemporalFormat.FRAME_COUNT);
+        const isFrameValid = frame < omakasePlayer.player.convertTime(omakasePlayer.player.getDuration(), MediaTemporalFormat.SECONDS, MediaTemporalFormat.FRAME_COUNT);
 
-      const isDisabled = !isFrameValid || !isPaused;
-      this.jumpDisabled.set(isDisabled);
-      return;
+        const isDisabled = !isFrameValid || !isPaused;
+        this.jumpDisabled.set(isDisabled);
+        return;
+      } catch {
+        // invalid timecode while user is still typing
+      }
     }
     this.jumpDisabled.set(true);
   }
 
   public togglePlayPause() {
-    if (this.playerService.omakasePlayer!.video!.isPlaying()) {
-      this.playerService.omakasePlayer!.video!.pause();
+    if (this.playerService.omakasePlayer!.player.playerSession.playback.playing) {
+      this.playerService.omakasePlayer!.player.pause();
     } else {
-      this.playerService.omakasePlayer!.video!.play();
+      this.playerService.omakasePlayer!.player.play();
     }
   }
 
   public async togglePip() {
-    const videoElement = this.playerService.omakasePlayer!.video.getHTMLVideoElement();
+    const videoElement = this.playerService.omakasePlayer!.player.htmlMediaElement as HTMLVideoElement;
 
     if (!videoElement) return;
 
@@ -344,63 +402,56 @@ export class ChromelessLayoutComponent implements AfterViewInit {
   }
 
   public stepNFrames(numberOfFrames: number) {
-    const currentFrame = this.playerService.omakasePlayer!.video!.getCurrentFrame();
-    const newFrame = Math.min(Math.max(0, currentFrame + numberOfFrames), this.playerService.omakasePlayer!.video.getVideo()!.totalFrames);
-    this.playerService.omakasePlayer!.video.pause().subscribe(() => {
-      this.playerService.omakasePlayer!.video.seekToFrame(newFrame);
+    const omakasePlayer = this.playerService.omakasePlayer!;
+
+    const currentFrame = omakasePlayer.player.convertTime(omakasePlayer.player.getCurrentTime(), MediaTemporalFormat.SECONDS, MediaTemporalFormat.FRAME_COUNT);
+    const newFrame = Math.min(
+      Math.max(0, currentFrame + numberOfFrames),
+      omakasePlayer.player.convertTime(omakasePlayer.player.mainMedia!.duration!, MediaTemporalFormat.SECONDS, MediaTemporalFormat.FRAME_COUNT)
+    );
+    omakasePlayer.player.pause().subscribe(() => {
+      omakasePlayer.player.seekTo(newFrame, MediaTemporalFormat.FRAME_COUNT);
     });
   }
 
   public seekToTimecodeControl() {
     const timecode = this.timecodeFormControl.value!;
-    const frame = this.playerService.omakasePlayer!.video.parseTimecodeToFrame(timecode);
-    this.playerService.omakasePlayer!.video!.seekToFrame(frame);
+    const frame = this.playerService.omakasePlayer!.player.convertTime(timecode, MediaTemporalFormat.TIMECODE, MediaTemporalFormat.FRAME_COUNT);
+    this.playerService.omakasePlayer!.player!.seekTo(frame, MediaTemporalFormat.FRAME_COUNT);
   }
 
   public toggleTextVisibility() {
-    this.playerService.omakasePlayer!.subtitles.toggleShowHideActiveTrack();
+    this.playerService.omakasePlayer!.player.text.toggleShowHide();
   }
 
   public changeVolume(volume: number) {
-    this.playerService.omakasePlayer!.audio.setAudioOutputVolume(volume);
+    this.playerService.omakasePlayer!.player.audio.getHandler(PlayerAudioType.OUTPUT)!.setVolume(volume);
   }
 
   public toggleMute() {
-    this.playerService.omakasePlayer!.audio.toggleAudioOutputMuteUnmute();
+    this.playerService.omakasePlayer!.player.audio.getHandler(PlayerAudioType.OUTPUT)!.toggleMuted();
   }
 
   public resolveInitialTimecode() {
-    const video = this.playerService.omakasePlayer?.video.getVideo();
+    return this.playerService.omakasePlayer!.player.convertTime(0, MediaTemporalFormat.SECONDS, MediaTemporalFormat.TIMECODE);
 
-    if (!video) {
-      return '00:00:00:00';
-    }
-
-    if (video.dropFrame) {
-      return '00:00:00;00';
-    }
-
-    if (video.audioOnly) {
-      return '00:00:00.00';
-    }
-
-    return '00:00:00:00';
+    // return '00:00:00:00';
   }
 
   public toggleSafeZone() {
     if (this.isSafeZoneSet()) {
-      this.playerService.omakasePlayer!.video.clearSafeZones();
+      this.playerService.omakasePlayer!.chroming.removeAllSafeZones();
       this.isSafeZoneSet.set(false);
     } else {
       const ratio = this.safeZoneFormControl.value!;
-      this.playerService.omakasePlayer!.video.addSafeZone(this.resolveSafeZone(ratio)).subscribe({
+      this.playerService.omakasePlayer!.chroming.addSafeZone(this.resolveSafeZone(ratio)).subscribe({
         error: (err) => console.log(err),
       });
       this.isSafeZoneSet.set(true);
     }
   }
 
-  private resolveSafeZone(safeZoneRation: SafeZoneRatio): VideoSafeZone {
+  private resolveSafeZone(safeZoneRation: SafeZoneRatio): Partial<VideoSafeZone> {
     switch (safeZoneRation) {
       case 'title-safe': {
         return {
@@ -415,6 +466,6 @@ export class ChromelessLayoutComponent implements AfterViewInit {
   }
 
   public toggleFullScreen() {
-    this.playerService.omakasePlayer!.video.toggleFullscreen();
+    this.playerService.omakasePlayer!.player.toggleFullScreen();
   }
 }

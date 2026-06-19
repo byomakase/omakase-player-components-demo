@@ -14,12 +14,15 @@
  * limitations under the License.
  */
 
-import {inject, Injectable, signal} from '@angular/core';
+import {computed, inject, Injectable, signal} from '@angular/core';
 import {ToastService} from '../../../common/toast/toast.service';
 import {PlayerService} from '../../player/player.service';
+import {MarkerStyle, MarkerTrack as OmakaseMarkerTrack, MarkerTrackStyle, TrackSource, TrackType, UrlSource} from '@byomakase/omakase-player';
+import {Subject} from 'rxjs';
+import {ColorService} from '../../../common/services/color.service';
 
-export interface MarkerTrack {
-  id: string;
+export interface SidecarMarkerTrack {
+  id?: string | undefined;
   src: string;
   label?: string;
   color: string;
@@ -35,43 +38,88 @@ export interface MarkerTrack {
 export class MarkerTrackService {
   private playerService = inject(PlayerService);
   private toastService = inject(ToastService);
-  public activeMarkerTrack = signal<MarkerTrack | undefined>(undefined);
+  private colorService = inject(ColorService);
+  public activeMarkerTrack = signal<SidecarMarkerTrack | undefined>(undefined);
 
-  public markerTracks = signal<MarkerTrack[]>([]);
+  public loadedMarkerTracks = signal<SidecarMarkerTrack[]>([]);
+
+  public markerTracks = computed(() => [...this.loadedMarkerTracks(), ...this._pendingMarkerTracks()]);
+
+  private _pendingMarkerTracks = signal<SidecarMarkerTrack[]>([]);
 
   public COLORS = ['multicolor', '#CE9DD6', '#9DADD6', '#62C0A4', '#E5EAA2', '#FFBB79', '#F57F65', '#D69D9D', '#E335FF', '#316BFF', '#15EBAB', '#EEFF2F', '#FF8E21', '#FF3306'];
   public HEX_COLORS = ['#CE9DD6', '#9DADD6', '#62C0A4', '#E5EAA2', '#FFBB79', '#F57F65', '#D69D9D', '#E335FF', '#316BFF', '#15EBAB', '#EEFF2F', '#FF8E21', '#FF3306'];
   public MULTICOLOR_COLORS = ['#CE9DD6', '#9DADD6', '#62C0A4', '#E5EAA2'];
 
-  constructor() {
-    this.playerService.onCreated$.subscribe((player) => {
-      if (!player) {
-      }
-    });
-  }
+  constructor() {}
 
   /**
    * Registers a marker track to OPCD session
    *
-   * @param {MarkerTrack} markerTrack
+   * @param {SidecarMarkerTrack} markerTrack
    */
-  public addMarkerTrack(markerTrack: MarkerTrack, showSuccessToast: boolean = true) {
-    this.activeMarkerTrack.set(markerTrack);
+  public addMarkerTrack(markerTrack: SidecarMarkerTrack, showSuccessToast: boolean = true) {
+    const result$ = new Subject<boolean>();
+    this._pendingMarkerTracks.update((prev) => [...prev, markerTrack]);
 
-    this.markerTracks.update((prev) => [...prev, markerTrack]);
+    const colorResolver = this.colorService.createColorResolver(crypto.randomUUID(), this.HEX_COLORS);
 
-    if (showSuccessToast) {
-      this.createSuccessToast();
-    }
+    const track = this.playerService.omakasePlayer!.track.add(
+      new OmakaseMarkerTrack({
+        source: UrlSource.of(markerTrack.src),
+        timedItemsLocked: markerTrack.readOnly,
+        timedItemHooks: {
+          beforeCreate: (timedItem) => {
+            const color = markerTrack.color !== 'multicolor' ? markerTrack.color : colorResolver.getColor(true);
+
+            this.playerService.omakasePlayer!.ui.updateStyleRule<MarkerStyle>({
+              id: timedItem.id,
+              style: {markerColor: color},
+            });
+          },
+        },
+      })
+    );
+
+    this.playerService.omakasePlayer!.track.load(TrackSource.fromTrack(track), {trackType: TrackType.MARKER_TRACK}).subscribe({
+      next: (trackState) => {
+        this._pendingMarkerTracks.update((prev) => prev.filter((t) => t !== markerTrack));
+        markerTrack.id = trackState.id;
+        this.playerService.omakasePlayer!.ui.updateStyleRule<MarkerTrackStyle>({
+          id: trackState.id,
+          style: {momentToSpanningThreshold: 1},
+        });
+        this.loadedMarkerTracks.update((prev) => [...prev, markerTrack]);
+        this.activeMarkerTrack.set(markerTrack);
+
+        if (showSuccessToast) {
+          this.createSuccessToast();
+        }
+
+        result$.next(true);
+        result$.complete();
+      },
+      error: () => {
+        if (showSuccessToast) {
+          this.createErrorToast();
+        }
+
+        result$.next(false);
+        result$.complete();
+      },
+    });
   }
 
   /**
    * Removes a marker track from OPCD session
    *
-   * @param {MarkerTrack} markerTrack
+   * @param {SidecarMarkerTrack} markerTrack
    */
-  public removeMarkerTrack(markerTrack: MarkerTrack) {
-    this.markerTracks.update((prev) => prev.filter((track) => track !== markerTrack));
+  public removeMarkerTrack(markerTrack: SidecarMarkerTrack) {
+    this.loadedMarkerTracks.update((prev) => prev.filter((track) => track !== markerTrack));
+    if (markerTrack.id) {
+      this.playerService.omakasePlayer?.track.delete(markerTrack.id);
+    }
 
     if (markerTrack === this.activeMarkerTrack()) {
       if (this.markerTracks().length > 0) {
@@ -83,7 +131,10 @@ export class MarkerTrackService {
   }
 
   public removeAllMarkerTracks() {
-    this.markerTracks.set([]);
+    this.loadedMarkerTracks().forEach((track) => {
+      track.id && this.playerService.omakasePlayer?.track.delete(track.id);
+    });
+    this.loadedMarkerTracks.set([]);
     this.activeMarkerTrack.set(undefined);
   }
 

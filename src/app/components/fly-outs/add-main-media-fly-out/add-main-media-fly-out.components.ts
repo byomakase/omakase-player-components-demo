@@ -19,19 +19,20 @@ import {FormControl, FormGroup, ReactiveFormsModule} from '@angular/forms';
 import {FlyOutService} from '../fly-out.service';
 import {IconDirective} from '../../../common/icon/icon.directive';
 import {allowedNameValidator} from '../../../common/validators/allowed-name-validator';
-import {VideoLoadOptions} from '@byomakase/omakase-player';
 import {ToastService} from '../../../common/toast/toast.service';
 import {PlayerService} from '../../player/player.service';
 import {SidecarTextService} from '../add-sidecar-text-fly-out/text-sidecar.service';
 import {NgbTooltip} from '@ng-bootstrap/ng-bootstrap';
 import {timecodeValidator} from '../../../common/validators/timecode-validator';
-import {filter, take} from 'rxjs';
+import {catchError, filter, take, throwError} from 'rxjs';
 import {LayoutService} from '../../layout-menu/layout.service';
 import {SidecarAudioService} from '../add-sidecar-audio-fly-out/sidecar-audio-service/sidecar-audio.service';
 import {CheckboxComponent} from '../../../common/controls/checkbox/checkbox.component';
 import {MarkerTrackService} from '../add-markers-fly-out/marker-track.service';
 import {StringUtil} from '../../../common/util/string-util';
 import {ObservationTrackService} from '../add-observation-track-fly-out/observation-track.service';
+import {MainMediaLoadOptions, UrlSource} from '@byomakase/omakase-player';
+import {SimpleLayoutConfigProviderService} from '../../layout-menu/config-providers/simple-layout-config-provider.service';
 
 const nonFractionFrameRates = ['24', '25', '50', '60', '23.98'];
 const urlRegex = /[-a-zA-Z0-9@:%._\+~#=]{1,256}\.[a-zA-Z0-9()]{1,6}\b([-a-zA-Z0-9()@:%_\+.~#?&//=]*)/;
@@ -54,14 +55,14 @@ const urlRegex = /[-a-zA-Z0-9@:%._\+~#=]{1,256}\.[a-zA-Z0-9()]{1,6}\b([-a-zA-Z0-
             <input formControlName="url" type="text" placeholder="URL" />
             <i appIcon="question" ngbTooltip="Specify the URL of an M3U8, Progressive MP4 or audio source (.aac, .mp3 or .wav)" placement="top"></i>
           </div>
-          @if(form.controls.url.hasError('forbiddenName') && form.controls.url.value !== '') {}
+          @if (form.controls.url.hasError('forbiddenName') && form.controls.url.value !== '') {}
         </div>
 
         <div class="input-wrapper">
           <select formControlName="frameRate">
             <option value="" disabled selected>Frame Rate</option>
             @for (frameRate of frameRates; track frameRate) {
-            <option [value]="frameRate">{{ frameRate }}</option>
+              <option [value]="frameRate">{{ frameRate }}</option>
             }
           </select>
           fps
@@ -70,16 +71,18 @@ const urlRegex = /[-a-zA-Z0-9@:%._\+~#=]{1,256}\.[a-zA-Z0-9()]{1,6}\b([-a-zA-Z0-
         <div class="input-wrapper">
           <select formControlName="dropFrame">
             @for (dropFrameOption of dropFrameOptions; track dropFrameOption.value) {
-            <option [ngValue]="dropFrameOption.value" [disabled]="dropFrameOption.value === null">
-              {{ dropFrameOption.label }}
-            </option>
+              <option [ngValue]="dropFrameOption.value" [disabled]="dropFrameOption.value === null">
+                {{ dropFrameOption.label }}
+              </option>
             }
           </select>
         </div>
 
         <div class="input-wrapper">
           <input formControlName="ffom" (click)="displayInitialTimecode()" class="short" type="text" placeholder="FFOM" />
-          @if (form.controls.ffom.hasError('forbiddenName')) { <span class="error-message">Invalid timecode format</span> }
+          @if (form.controls.ffom.hasError('forbiddenName')) {
+            <span class="error-message">Invalid timecode format</span>
+          }
         </div>
 
         <div class="input-wrapper">
@@ -89,19 +92,28 @@ const urlRegex = /[-a-zA-Z0-9@:%._\+~#=]{1,256}\.[a-zA-Z0-9()]{1,6}\b([-a-zA-Z0-
           </div>
         </div>
 
-        @if(sidecarAudioService.sidecarAudios().length || sidecarTextService.sidecarTexts().length || markerTrackService.markerTracks().length) {
-        <div class="input-wrapper input-wrapper-no-margin">
-          <input hidden formControlName="removeAllSidecars" type="checkbox" />
-          <app-checkbox
-            [className]="form.controls.removeAllSidecars.disabled ? 'disabled' : ''"
-            [disabled]="form.controls.removeAllSidecars.disabled"
-            [checked]="form.controls.removeAllSidecars.value ?? undefined"
-            (clicked)="toggleRemoveAllSidecars()"
-          />
-          <label [className]="form.controls.removeAllSidecars.disabled ? 'disabled' : ''" class="input-label">Remove all sidecars</label>
-        </div>
+        @if (sidecarAudioService.sidecarAudios().length || sidecarTextService.sidecarTexts().length || markerTrackService.markerTracks().length) {
+          <div class="input-wrapper">
+            <input hidden formControlName="removeAllSidecars" type="checkbox" />
+            <app-checkbox
+              [className]="form.controls.removeAllSidecars.disabled ? 'disabled' : ''"
+              [disabled]="form.controls.removeAllSidecars.disabled"
+              [checked]="form.controls.removeAllSidecars.value ?? undefined"
+              (clicked)="toggleRemoveAllSidecars()"
+            />
+            <label class="input-label" [class.disabled]="form.controls.removeAllSidecars.disabled">Remove all sidecars</label>
+          </div>
         }
-
+        <div class="input-wrapper input-wrapper-no-margin">
+          <input hidden formControlName="multiAudioMode" type="checkbox" />
+          <app-checkbox
+            [className]="form.controls.multiAudioMode.disabled ? 'disabled' : ''"
+            [disabled]="form.controls.multiAudioMode.disabled"
+            [checked]="form.controls.multiAudioMode.value ?? undefined"
+            (clicked)="toggleMultiAudioMode()"
+          />
+          <label class="input-label">Multiple Audio Mode</label>
+        </div>
         <div class="button-wrapper">
           <button [disabled]="isLoadDisabled()" (click)="load()">LOAD VIDEO</button>
           <button class="cancel-button" (click)="close()">CANCEL</button>
@@ -117,6 +129,7 @@ export class AddMainMediaFlyOut implements OnInit {
     frameRate: new FormControl<string>(''),
     dropFrame: new FormControl<boolean | null>(null),
     removeAllSidecars: new FormControl<boolean>(true),
+    multiAudioMode: new FormControl<boolean>(false),
     ffom: new FormControl<string>('', [timecodeValidator(undefined, false)]),
     thumbnailTrack: new FormControl<string>('', [allowedNameValidator(urlRegex)]),
   });
@@ -131,6 +144,7 @@ export class AddMainMediaFlyOut implements OnInit {
   public sidecarTextService = inject(SidecarTextService);
   public markerTrackService = inject(MarkerTrackService);
   private observationTrackService = inject(ObservationTrackService);
+  private simpleLayoutConfigProviderService = inject(SimpleLayoutConfigProviderService);
 
   public frameRates = ['24', '25', '50', '60', '23.98', '29.97', '59.94'];
   public dropFrameOptions = [
@@ -194,6 +208,10 @@ export class AddMainMediaFlyOut implements OnInit {
     this.form.controls.removeAllSidecars.setValue(!this.form.controls.removeAllSidecars.value);
   }
 
+  toggleMultiAudioMode() {
+    this.form.controls.multiAudioMode.setValue(!this.form.controls.multiAudioMode.value);
+  }
+
   /**
    * Loads a new main media into OPCD session based on form value
    */
@@ -204,25 +222,36 @@ export class AddMainMediaFlyOut implements OnInit {
     const ffom = this.form.controls.ffom.value;
 
     const isAudio = this.isMainMediaAudio();
-    const isAudioLoaded = StringUtil.isAudioFile(this.playerService.omakasePlayer?.video.getVideo()?.sourceUrl ?? '');
+    const isAudioLoaded = StringUtil.isAudioFile(this.getMainMediaUrl() ?? '');
+    const removeAllSidecars = this.form.controls.removeAllSidecars.value === true;
 
-    const videoLoadOptions: VideoLoadOptions = {};
+    const videoLoadOptions: MainMediaLoadOptions = {};
     if (!isAudio) {
       if (dropFrame !== null) {
         videoLoadOptions.dropFrame = dropFrame;
       }
       videoLoadOptions.frameRate = frameRate;
+      this.simpleLayoutConfigProviderService.setTheme('default');
+    } else {
+      this.simpleLayoutConfigProviderService.setTheme('audio');
     }
 
     if (ffom && ffom !== '') {
       videoLoadOptions.ffom = ffom;
     }
 
-    const sidecarAudios = this.sidecarAudioService.sidecarAudios();
-    const sidecarAudioTracks = this.playerService.omakasePlayer?.audio.getSidecarAudioTracks() ?? [];
-    const sidecarTexts = this.sidecarTextService.sidecarTexts();
+    if (Number.isNaN(frameRate)) {
+      videoLoadOptions.frameRate = undefined;
+    }
 
-    if (this.playerService.omakasePlayer === undefined || isAudio !== isAudioLoaded) {
+    const sidecarAudios = removeAllSidecars ? [] : [...this.sidecarAudioService.sidecarAudios()];
+    const sidecarTexts = removeAllSidecars ? [] : [...this.sidecarTextService.sidecarTexts()];
+    const markerTracks = removeAllSidecars ? [] : [...this.markerTrackService.loadedMarkerTracks()];
+    const observationTracks = removeAllSidecars ? [] : [...this.observationTrackService.loadedObservationTracks()];
+    const existingThumbnailUrl = this.playerService.thumbnailTrackUrl();
+
+    if (this.playerService.omakasePlayer === undefined || this.layoutService.isMultiAudioMode !== this.form.controls.multiAudioMode.value || isAudio !== isAudioLoaded) {
+      this.layoutService.isMultiAudioMode = this.form.controls.multiAudioMode.value ?? false;
       const config = this.layoutService.getPlayerConfiguration(isAudio);
       this.playerService.create(config);
     }
@@ -233,40 +262,48 @@ export class AddMainMediaFlyOut implements OnInit {
         take(1)
       )
       .subscribe((player) => {
-        if (this.form.controls.removeAllSidecars.value === true) {
-          // important to do beforehand since the markers are not reloaded and are not implicitly deleted on video reload
-          this.markerTrackService.removeAllMarkerTracks();
-          this.observationTrackService.removeAllObservationTracks();
-        }
-        player.loadVideo(url, videoLoadOptions).subscribe({
-          next: () => {
-            this.toastService.show({message: 'Media successfully loaded', type: 'success', duration: 5000});
-            player.video.unmute();
+        this.markerTrackService.removeAllMarkerTracks();
+        this.observationTrackService.removeAllObservationTracks();
+        this.sidecarAudioService.reset();
+        this.sidecarTextService.reset();
 
-            if (this.form.value.thumbnailTrack && this.form.value.thumbnailTrack !== '') {
-              this.playerService.setThumbnailTrack(this.form.value.thumbnailTrack);
-            } else {
-              this.playerService.thumbnailTrackUrl.set(undefined);
-            }
+        player
+          .loadMainMedia(url, videoLoadOptions)
+          .pipe(catchError((e) => throwError(() => e)))
+          .subscribe({
+            next: () => {
+              this.toastService.show({message: 'Media successfully loaded', type: 'success', duration: 5000});
+              player.player.audio.unmute();
 
-            if (this.form.controls.removeAllSidecars.value === false) {
-              this.sidecarAudioService.reloadSidecarAudios(sidecarAudios, sidecarAudioTracks);
+              const formThumbnail = this.form.value.thumbnailTrack;
+              if (formThumbnail && formThumbnail !== '') {
+                this.playerService.setThumbnailTrack(formThumbnail);
+              } else if (!removeAllSidecars && existingThumbnailUrl) {
+                this.playerService.setThumbnailTrack(existingThumbnailUrl);
+              } else {
+                this.playerService.thumbnailTrackUrl.set(undefined);
+              }
 
-              this.playerService
-                .omakasePlayer!.subtitles.onSubtitlesLoaded$.pipe(
-                  filter((p) => !!p),
-                  take(1)
-                )
-                .subscribe((event) => {
-                  this.sidecarTextService.reloadSidecarTexts(sidecarTexts);
+              if (!removeAllSidecars) {
+                sidecarAudios.forEach((a) => {
+                  a.id = undefined;
+                  this.sidecarAudioService.addSidecarAudio(a, false);
                 });
-            } else {
-              this.sidecarAudioService.removeAllSidecarAudios();
-              this.sidecarTextService.removeAllSidecarTexts();
-            }
-          },
-          error: () => this.toastService.show({message: 'Media load failed', type: 'error', duration: 5000}),
-        });
+                sidecarTexts.forEach((t) => {
+                  t.id = undefined;
+                  this.sidecarTextService.addSidecarText(t, false);
+                });
+                markerTracks.forEach((m) => {
+                  m.id = undefined;
+                  this.markerTrackService.addMarkerTrack(m, false);
+                });
+                observationTracks.forEach((o) => {
+                  this.observationTrackService.addObservationTrack(o, false);
+                });
+              }
+            },
+            error: () => this.toastService.show({message: 'Media load failed', type: 'error', duration: 5000}),
+          });
       });
 
     this.close();
@@ -332,5 +369,16 @@ export class AddMainMediaFlyOut implements OnInit {
     }
 
     return false;
+  }
+
+  private getMainMediaUrl() {
+    if (!this.playerService.omakasePlayer) {
+      return undefined;
+    }
+
+    if (!this.playerService.omakasePlayer.player.mainMedia) {
+      return undefined;
+    }
+    return (this.playerService.omakasePlayer.player.mainMedia.source as UrlSource).url;
   }
 }

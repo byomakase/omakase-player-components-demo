@@ -15,13 +15,13 @@
  */
 
 import {computed, effect, inject, Injectable, Injector, signal} from '@angular/core';
-import {AbstractSidecarAudioService, SidecarAudio} from './sidecar-audio.service.abstract';
+// import {AbstractSidecarAudioService, SidecarAudio} from './sidecar-audio.service.abstract';
 import {SimpleLayoutSidecarAudioService} from './simple-layout-sidecar-audio.service';
-import {AudioLayoutSidecarAudioService} from './audio-layout-sidecar-audio.service';
-import {LayoutService} from '../../../layout-menu/layout.service';
-import {OmpAudioTrack} from '@byomakase/omakase-player';
-import {Layout} from '../../../../model/session.model';
 import {StampLayoutSidecarAudioService} from './stamp-layout-sidecar-audio.service';
+import {LayoutService} from '../../../layout-menu/layout.service';
+import {Layout} from '../../../../model/session.model';
+import {AbstractSidecarAudioService, SidecarAudio} from './sidecar-audio.service.abstract';
+import {Observable} from 'rxjs';
 
 /**
  * Service handling sidecar audio lifecycle management. On layout change the service method implementations should be changed. To make it more robust,
@@ -36,22 +36,18 @@ export class SidecarAudioService extends AbstractSidecarAudioService {
   private injector = inject(Injector);
   private currentService!: AbstractSidecarAudioService;
   private activeLayout = signal<Layout>('simple');
-
   constructor() {
     super();
-
     this.layoutService.onLayoutChange$.subscribe((layout) => {
       this.setDelegateByLayout(layout);
       this.activeLayout.set(layout);
     });
-
     effect(() => {});
   }
-
-  /**
-   * Signal containing sidecar audios loaded into Omakase player. These
-   * sidecars are playable and fully loaded
-   */
+  // /**
+  //  * Signal containing sidecar audios loaded into Omakase player. These
+  //  * sidecars are playable and fully loaded
+  //  */
   public loadedSidecarAudios = computed(() => {
     if (this.activeLayout()) {
       // triggers inner signal switch
@@ -59,11 +55,10 @@ export class SidecarAudioService extends AbstractSidecarAudioService {
     }
     return [];
   });
-
-  /**
-   * Signal containing all sidecar audios that are either loaded or being loaded into Omakase player.
-   * All of the loaded sidecars will have a label even if the user didn't specify one
-   */
+  // /**
+  //  * Signal containing all sidecar audios that are either loaded or being loaded into Omakase player.
+  //  * All of the loaded sidecars will have a label even if the user didn't specify one
+  //  */
   public sidecarAudios = computed(() => {
     if (this.activeLayout()) {
       // triggers inner signal switch
@@ -71,7 +66,6 @@ export class SidecarAudioService extends AbstractSidecarAudioService {
     }
     return [];
   });
-
   /**
    * Signal containing Ids of loaded sidecars for which the user didn't specify a label.
    * Only contains fully loaded sidecars
@@ -83,58 +77,46 @@ export class SidecarAudioService extends AbstractSidecarAudioService {
     }
     return [];
   });
-
-  /**
-   * Injects appropriate audio service instance based on currently active layout
-   *
-   * @param {Layout} layout - Active OPCD layout
-   */
+  // /**
+  //  * Injects appropriate audio service instance based on currently active layout
+  //  *
+  //  * @param {Layout} layout - Active OPCD layout
+  //  */
   private setDelegateByLayout(layout: Layout) {
+    // reset the outgoing service so its stale loaded/pending state doesn't bleed into the next time we switch back to it
     this.currentService?.reset();
     switch (layout) {
-      case 'simple':
-        this.currentService = this.injector.get(SimpleLayoutSidecarAudioService);
-        break;
-      case 'audio':
-        this.currentService = this.injector.get(AudioLayoutSidecarAudioService);
-        break;
-      case 'marker':
-        this.currentService = this.injector.get(SimpleLayoutSidecarAudioService);
-        break;
-      case 'timeline':
-        this.currentService = this.injector.get(SimpleLayoutSidecarAudioService);
-        break;
       case 'stamp':
         this.currentService = this.injector.get(StampLayoutSidecarAudioService);
         break;
+      case 'media-handlers':
+      case 'marker':
+      case 'simple':
+      case 'timeline':
       case 'chromeless':
-        this.currentService = this.injector.get(SimpleLayoutSidecarAudioService);
-        break;
-      case 'hybrid':
+      case 'audio':
+      case 'text':
         this.currentService = this.injector.get(SimpleLayoutSidecarAudioService);
         break;
       default:
         throw new Error(`Unsupported layout: ${layout}`);
     }
   }
-
-  /**
-   * Rxjs subject that fires when selected audio track changes
-   */
-  get onSelectedAudioTrackChange$() {
-    return this.currentService.onSelectedAudioTrackChange$;
-  }
-
-  /**
-   * Registers a sidecar. Specific side effects depend on the active layout
-   *
-   * @param {SidecarAudio} sidecarAudio
-   * @returns
-   */
+  // /**
+  //  * Rxjs subject that fires when selected audio track changes
+  //  */
+  // get onSelectedAudioTrackChange$() {
+  //   return this.currentService.onSelectedAudioTrackChange$;
+  // }
+  // /**
+  //  * Registers a sidecar. Specific side effects depend on the active layout
+  //  *
+  //  * @param {SidecarAudio} sidecarAudio
+  //  * @returns
+  //  */
   addSidecarAudio(sidecarAudio: SidecarAudio, showSuccessToast: boolean = true) {
     return this.currentService.addSidecarAudio(sidecarAudio, showSuccessToast);
   }
-
   /**
    * Removes a sidecar. Specific side effects depend on the active layout
    *
@@ -144,43 +126,38 @@ export class SidecarAudioService extends AbstractSidecarAudioService {
   removeSidecarAudio(sidecarAudio: SidecarAudio) {
     return this.currentService.removeSidecarAudio(sidecarAudio);
   }
-
-  /**
-   * Reloads sidecar audios. This method is usually called after the player has been destroyed, the arguments should
-   * capture the player state before destruction. Specific side effects depend on the active layout
-   *
-   * @param {SidecarAudio[]} sidecarAudios - Sidecar audios
-   * @param {OmpAudioTrack[]} sidecarAudioTracks - Sidecar tracks registered with Omakase player
-   */
-  reloadSidecarAudios(sidecarAudios: SidecarAudio[], sidecarAudioTracks: OmpAudioTrack[]) {
-    return this.currentService.reloadSidecarAudios(sidecarAudios, sidecarAudioTracks);
-  }
-
-  /**
-   * Removes all sidecars from OPCD session
-   * @returns
-   */
-  removeAllSidecarAudios() {
-    return this.currentService.removeAllSidecarAudios();
-  }
-
-  /**
-   * Activates a sidecar audio. Specific side effects depend on the active layout
-   *
-   * @param {SidecarAudio} sidecarAudio - sidecar audio to activate
-   * @param {boolean} deactivateOthers - should other sidecars be deactivated
-   */
-  activateSidecarAudio(sidecarAudio: SidecarAudio, deactivateOthers: boolean = true) {
-    return this.currentService.activateSidecarAudio(sidecarAudio, deactivateOthers);
-  }
-
-  /**
-   * Deactivates all sidecar audios
-   */
-  deactivateAllSidecarAudios() {
-    return this.currentService.deactivateAllSidecarAudios();
-  }
-
+  // /**
+  //  * Reloads sidecar audios. This method is usually called after the player has been destroyed, the arguments should
+  //  * capture the player state before destruction. Specific side effects depend on the active layout
+  //  *
+  //  * @param {SidecarAudio[]} sidecarAudios - Sidecar audios
+  //  * @param {OmpAudioTrack[]} sidecarAudioTracks - Sidecar tracks registered with Omakase player
+  //  */
+  // reloadSidecarAudios(sidecarAudios: SidecarAudio[], sidecarAudioTracks: OmpAudioTrack[]) {
+  //   return this.currentService.reloadSidecarAudios(sidecarAudios, sidecarAudioTracks);
+  // }
+  // /**
+  //  * Removes all sidecars from OPCD session
+  //  * @returns
+  //  */
+  // removeAllSidecarAudios() {
+  //   return this.currentService.removeAllSidecarAudios();
+  // }
+  // /**
+  //  * Activates a sidecar audio. Specific side effects depend on the active layout
+  //  *
+  //  * @param {SidecarAudio} sidecarAudio - sidecar audio to activate
+  //  * @param {boolean} deactivateOthers - should other sidecars be deactivated
+  //  */
+  // activateSidecarAudio(sidecarAudio: SidecarAudio, deactivateOthers: boolean = true) {
+  //   return this.currentService.activateSidecarAudio(sidecarAudio, deactivateOthers);
+  // }
+  // /**
+  //  * Deactivates all sidecar audios
+  //  */
+  // deactivateAllSidecarAudios() {
+  //   return this.currentService.deactivateAllSidecarAudios();
+  // }
   reset() {
     return this.currentService.reset();
   }

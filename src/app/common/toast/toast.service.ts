@@ -14,19 +14,18 @@
  * limitations under the License.
  */
 
-import {Injectable} from '@angular/core';
+import {Injectable, signal} from '@angular/core';
 import {Toast} from './toast.component';
 
 @Injectable({providedIn: 'root'})
 export class ToastService {
-  toasts: Toast[] = [];
-  constructor() {}
+  toasts = signal<Toast[]>([]);
 
   show(toast: Toast) {
-    this.toasts.push(toast);
+    this.toasts.update((prev) => [...prev, toast]);
   }
 
   remove(toast: Toast) {
-    this.toasts = this.toasts.filter((t) => t !== toast);
+    this.toasts.update((prev) => prev.filter((t) => t !== toast));
   }
 }

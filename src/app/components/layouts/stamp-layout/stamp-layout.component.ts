@@ -1,19 +1,21 @@
 import {afterRender, Component, computed, effect, inject, OnDestroy} from '@angular/core';
-import {MomentMarker, OmakasePlayer, PeriodMarker} from '@byomakase/omakase-player';
 import {Subject, filter, take, takeUntil} from 'rxjs';
-import {MarkerTrackService, MarkerTrack} from '../../fly-outs/add-markers-fly-out/marker-track.service';
+import {MarkerTrackService, SidecarMarkerTrack} from '../../fly-outs/add-markers-fly-out/marker-track.service';
 import {ColorService} from '../../../common/services/color.service';
 import {StampLayoutService} from './stamp-layout.service';
+import {ChromingTrackDestination, MarkerStyle, MarkerTrack as OmakaseMarkerTrack, MarkerTrackStyle, OmakasePlayer, PlayerEventType, TrackSource, TrackType} from '@byomakase/omakase-player';
 
 @Component({
   selector: 'app-stamp-layout',
   host: {class: 'stamp-layout'},
   template: `
     <div class="grid-container">
-      @if(playerIds().length) { @for (id of playerIds(); track id) {
-      <div [id]="id"></div>
-      } } @else {
-      <div class="player-placeholder"></div>
+      @if (playerIds().length) {
+        @for (playerId of playerIds(); track playerId) {
+          <div [id]="playerId"></div>
+        }
+      } @else {
+        <div class="player-placeholder"></div>
       }
     </div>
   `,
@@ -32,6 +34,10 @@ export class StampLayoutComponent implements OnDestroy {
     this.destroyed$.next();
     this.destroyed$.complete();
     this.stampLayoutService.reset();
+  }
+
+  public idPlayer(id: string) {
+    return id;
   }
 
   constructor() {
@@ -64,40 +70,62 @@ export class StampLayoutComponent implements OnDestroy {
           this.stampLayoutService.registerStampPlayer(id, player);
         });
       }
+    });
 
-      this.markerTrackService.markerTracks().forEach((markerTrack) => {
-        let playerId = this.playerIdsByMarkerTrackIds.get(markerTrack.id);
-        if (!playerId) {
-          playerId = this.stampLayoutService.instantiatedPlayerIds().find((id) => ![...this.playerIdsByMarkerTrackIds.values()].includes(id));
-        } else {
-          return;
+    // sync marker tracks
+    effect(() => {
+      const loadedMarkerTracks = this.markerTrackService.loadedMarkerTracks();
+      const instantiatedPlayerIds = this.stampLayoutService.instantiatedPlayerIds();
+
+      const targetAssignments = new Map<string, string>();
+      loadedMarkerTracks.forEach((markerTrack, idx) => {
+        const playerId = instantiatedPlayerIds[idx];
+        if (playerId) targetAssignments.set(markerTrack.id!, playerId);
+      });
+
+      [...this.playerIdsByMarkerTrackIds.entries()].forEach(([markerTrackId, currentPlayerId]) => {
+        const targetPlayerId = targetAssignments.get(markerTrackId);
+        if (targetPlayerId !== currentPlayerId) {
+          const player = this.stampLayoutService.getPlayer(currentPlayerId);
+          if (player?.chroming.getMarkerBar(ChromingTrackDestination.PROGRESS_BAR)) {
+            player.chroming.deleteMarkerBar(ChromingTrackDestination.PROGRESS_BAR);
+          }
+          this.playerIdsByMarkerTrackIds.delete(markerTrackId);
         }
+      });
 
-        if (!playerId) return;
+      targetAssignments.forEach((targetPlayerId, markerTrackId) => {
+        if (this.playerIdsByMarkerTrackIds.get(markerTrackId) === targetPlayerId) return;
 
-        const player = this.stampLayoutService.getPlayer(playerId)!;
-        this.playerIdsByMarkerTrackIds.set(markerTrack.id, playerId);
+        const markerTrack = loadedMarkerTracks.find((t) => t.id === markerTrackId)!;
+        const player = this.stampLayoutService.getPlayer(targetPlayerId)!;
+        this.playerIdsByMarkerTrackIds.set(markerTrackId, targetPlayerId);
 
-        player.video.onVideoLoaded$
-          .pipe(
-            filter((p) => !!p),
-            take(1),
-            takeUntil(this.destroyed$)
-          )
-          .subscribe(() => {
-            this.createMarkerTrack(player, markerTrack);
+        const onMainMediaLoaded = () => {
+          this.createMarkerTrack(player, markerTrack);
 
-            // on video reload remove marker track
-            player.video.onVideoLoaded$
-              .pipe(
-                filter((p) => !p),
-                take(1),
-                takeUntil(this.destroyed$)
-              )
-              .subscribe(() => {
-                this.playerIdsByMarkerTrackIds.delete(markerTrack.id);
-              });
-          });
+          player.player.onEvent$
+            .pipe(
+              filter((event) => event.type === PlayerEventType.PLAYER_MAIN_MEDIA_UNLOADED),
+              take(1),
+              takeUntil(this.destroyed$)
+            )
+            .subscribe(() => {
+              this.playerIdsByMarkerTrackIds.delete(markerTrack.id!);
+            });
+        };
+
+        if (player.player.mainMedia) {
+          onMainMediaLoaded();
+        } else {
+          player.player.onEvent$
+            .pipe(
+              filter((event) => event.type === PlayerEventType.PLAYER_MAIN_MEDIA_LOADED),
+              take(1),
+              takeUntil(this.destroyed$)
+            )
+            .subscribe(() => onMainMediaLoaded());
+        }
       });
     });
   }
@@ -110,36 +138,29 @@ export class StampLayoutComponent implements OnDestroy {
    * @param markerTrack - Marker track to present in the Omakase player
    * @returns
    */
-  private createMarkerTrack(player: OmakasePlayer, markerTrack: MarkerTrack) {
-    player.chroming.progressMarkerTrack?.removeAllMarkers();
+  private createMarkerTrack(player: OmakasePlayer, markerTrack: SidecarMarkerTrack) {
+    const existing = player.chroming.getMarkerBar(ChromingTrackDestination.PROGRESS_BAR);
+    if (existing) {
+      player.chroming.deleteMarkerBar(ChromingTrackDestination.PROGRESS_BAR);
+    }
     if (!markerTrack) return;
 
     const colorResolver = this.colorService.createColorResolver(crypto.randomUUID(), this.markerTrackService.HEX_COLORS);
 
-    player.chroming.progressMarkerTrack?.loadVtt(markerTrack.src, {
-      vttMarkerCreateFn(cue, index) {
-        const name = '';
+    player.track.load(markerTrack.src, {trackType: TrackType.MARKER_TRACK}).subscribe((loadedTrack) => {
+      player.ui.updateStyleRule<MarkerTrackStyle>({
+        id: loadedTrack.id,
+        style: {momentToSpanningThreshold: 1},
+      });
+      (loadedTrack as OmakaseMarkerTrack).timedItemsSorted.forEach((timedItem) => {
         const color = markerTrack.color !== 'multicolor' ? markerTrack.color : colorResolver.getColor(true);
+        player.ui.updateStyleRule<MarkerStyle>({
+          id: timedItem.id,
+          style: {markerColor: color},
+        });
+      });
 
-        if (cue.endTime - cue.startTime < 1) {
-          return new MomentMarker({
-            timeObservation: {time: cue.startTime},
-            style: {color},
-            editable: !markerTrack.readOnly,
-            text: name === '' ? `Marker ${index + 1}` : name,
-          });
-        } else {
-          return new PeriodMarker({
-            timeObservation: {
-              start: cue.startTime,
-              end: cue.endTime,
-            },
-            style: {color},
-            editable: !markerTrack.readOnly,
-            text: name === '' ? `Marker ${index + 1}` : name,
-          });
-        }
-      },
+      player.chroming.addMarkerBar(TrackSource.fromTrack(loadedTrack), ChromingTrackDestination.PROGRESS_BAR, {trackType: TrackType.MARKER_TRACK}, {visible: true});
     });
   }
 }

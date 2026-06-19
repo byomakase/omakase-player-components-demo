@@ -1,36 +1,38 @@
 {
   "name": "omakase-player-components-demo",
-  "version": "1.6.0",
+  "version": "2.0.0",
   "scripts": {
     "build:dev": "rm -rf dist && ng build",
-    "build:prod": "rm -rf dist && ng build"
+    "build:prod": "rm -rf dist && ng build",
+    "dev": "rm -rf ./.angular && ng serve"
   },
   "private": true,
   "dependencies": {
-    "@angular/animations": "^19.2.18",
-    "@angular/common": "^19.2.18",
-    "@angular/compiler": "^19.2.18",
-    "@angular/core": "^19.2.18",
-    "@angular/forms": "^19.2.18",
-    "@angular/platform-browser": "^19.2.18",
-    "@angular/platform-browser-dynamic": "^19.2.18",
-    "@angular/router": "^19.2.18",
-    "@byomakase/omakase-player": "0.25.0",
+    "@angular/animations": "19.2.17",
+    "@angular/common": "19.2.17",
+    "@angular/compiler": "19.2.17",
+    "@angular/core": "19.2.17",
+    "@angular/forms": "19.2.17",
+    "@angular/platform-browser": "19.2.17",
+    "@angular/platform-browser-dynamic": "19.2.17",
+    "@angular/router": "19.2.17",
+    "@byomakase/omakase-player": "1.0.0",
     "@byomakase/vu-meter": "^1.1.0",
     "@ng-bootstrap/ng-bootstrap": "^18.0.0",
     "@popperjs/core": "^2.11.8",
     "bootstrap": "^5.3.3",
+    "node-webvtt": "^1.9.4",
     "rxjs": "~7.8.0",
     "tslib": "^2.3.0",
     "zod": "^4.0.5",
     "zone.js": "~0.15.0"
   },
   "devDependencies": {
-    "@angular-devkit/build-angular": "^19.2.19",
-    "@angular/cli": "^21.1.0",
-    "@angular/compiler-cli": "^19.2.18",
-    "@angular/localize": "^19.2.18",
-    "@types/node": "^22.14.1",
-    "typescript": "~5.6.2"
+    "@angular-devkit/build-angular": "19.2.19",
+    "@angular/cli": "19.2.17",
+    "@angular/compiler-cli": "19.2.17",
+    "@angular/localize": "19.2.17",
+    "@types/node": "22.14.1",
+    "typescript": "5.6.2"
   }
 }

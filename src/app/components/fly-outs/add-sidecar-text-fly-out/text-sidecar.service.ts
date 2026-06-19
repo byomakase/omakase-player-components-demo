@@ -17,16 +17,19 @@
 import {computed, inject, Injectable, Injector, signal} from '@angular/core';
 import {PlayerService} from '../../player/player.service';
 import {ToastService} from '../../../common/toast/toast.service';
-import {SubtitlesVttTrack} from '@byomakase/omakase-player';
+// import {SubtitlesVttTrack} from '@byomakase/omakase-player';
 import {StringUtil} from '../../../common/util/string-util';
 import {Subject} from 'rxjs';
 import {AbstractSidecarTextService} from './text-sidecar.service.abstract';
 import {LayoutService} from '../../layout-menu/layout.service';
 import {Layout} from '../../../model/session.model';
 import {SimpleLayoutSidecarTextService} from './simple-layout-text-sidecar.service';
+import {PlayerTextHandlerType} from '@byomakase/omakase-player';
+import {TextLayoutSidecarTextService} from './text-layout-text-sidecar.service';
 import {StampLayoutSidecarTextService} from './stamp-layout-text-sidecar.service';
 
-export type SidecarText = Partial<SubtitlesVttTrack> & {src: string};
+// export type SidecarText = Partial<SubtitlesVttTrack> & {src: string};
+export type SidecarText = {src: string; label?: string | undefined; engine: PlayerTextHandlerType; id?: string | undefined};
 export type LoadedSidecarText = SidecarText & {id: string};
 
 @Injectable({
@@ -46,6 +49,9 @@ export class SidecarTextService extends AbstractSidecarTextService {
       this.setDelegateByLayout(layout);
       this.activeLayout.set(layout);
     });
+
+    //@ts-ignore
+    window.sts = this;
   }
 
   /**
@@ -116,8 +122,14 @@ export class SidecarTextService extends AbstractSidecarTextService {
     this.currentService.removeAllSidecarTexts();
   }
 
+  public override reset(): void {
+    this.currentService.reset();
+  }
+
   private setDelegateByLayout(layout: Layout) {
-    if (layout === 'stamp') {
+    if (layout === 'text') {
+      this.currentService = this.injector.get(TextLayoutSidecarTextService);
+    } else if (layout === 'stamp') {
       this.currentService = this.injector.get(StampLayoutSidecarTextService);
     } else {
       this.currentService = this.injector.get(SimpleLayoutSidecarTextService);

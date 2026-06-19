@@ -14,12 +14,11 @@
  * limitations under the License.
  */
 
-import {OmpAudioTrack} from '@byomakase/omakase-player';
 import {Signal} from '@angular/core';
 import {Observable, Subject} from 'rxjs';
 import {LoadedSidecarText, SidecarText} from './text-sidecar.service';
 
-export type SidecarAudio = Partial<OmpAudioTrack> & {src: string};
+// export type SidecarAudio = Partial<OmpAudioTrack> & {src: string};
 
 export abstract class AbstractSidecarTextService {
   abstract loadedSidecarTexts: Signal<LoadedSidecarText[]>;
@@ -30,4 +29,5 @@ export abstract class AbstractSidecarTextService {
   abstract removeSidecarText(sidecarText: SidecarText): void;
   abstract reloadSidecarTexts(sidecarTexts: SidecarText[]): void;
   abstract removeAllSidecarTexts(): void;
+  abstract reset(): void;
 }

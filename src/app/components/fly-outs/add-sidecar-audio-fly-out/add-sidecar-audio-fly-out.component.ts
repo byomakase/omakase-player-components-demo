@@ -22,9 +22,13 @@ import {allowedNameValidator} from '../../../common/validators/allowed-name-vali
 import {NgbTooltip} from '@ng-bootstrap/ng-bootstrap';
 import {SidecarAudioService} from './sidecar-audio-service/sidecar-audio.service';
 import {SidecarDisplay} from '../common/sidecar-display.component';
+import {SidecarAudio} from './sidecar-audio-service/sidecar-audio.service.abstract';
 
 const urlRegex = /[-a-zA-Z0-9@:%._\+~#=]{1,256}\.[a-zA-Z0-9()]{1,6}\b([-a-zA-Z0-9()@:%_\+.~#?&//=]*)/;
-
+/**
+ *           [label]="sidecarAudio.id && sidecarAudioService.noUserLabelSidecarAudioIds().includes(sidecarAudio.id) ? '' : sidecarAudio.label"
+          (deleted)="sidecarAudioService.removeSidecarAudio(sidecarAudio)"
+ */
 @Component({
   selector: 'app-add-sidecar-audio-fly-out',
   template: `
@@ -35,14 +39,14 @@ const urlRegex = /[-a-zA-Z0-9@:%._\+~#=]{1,256}\.[a-zA-Z0-9()]{1,6}\b([-a-zA-Z0-
     <div class="body add-sidecar-body">
       <div class="sidecar-container">
         @for (sidecarAudio of sidecarAudioService.sidecarAudios(); track sidecarAudio) {
-        <app-sidecar-display
-          [isDeletable]="sidecarAudio.id != undefined"
-          [url]="sidecarAudio.src"
-          [isLoading]="sidecarAudio.id == undefined"
-          [label]="sidecarAudio.id && sidecarAudioService.noUserLabelSidecarAudioIds().includes(sidecarAudio.id) ? '' : sidecarAudio.label"
-          (deleted)="sidecarAudioService.removeSidecarAudio(sidecarAudio)"
-        >
-        </app-sidecar-display>
+          <app-sidecar-display
+            (deleted)="deleteSidecarAudio(sidecarAudio)"
+            [label]="sidecarAudio.id && sidecarAudioService.noUserLabelSidecarAudioIds().includes(sidecarAudio.id) ? '' : sidecarAudio.label"
+            [isDeletable]="sidecarAudio.id != undefined"
+            [url]="sidecarAudio.src"
+            [isLoading]="sidecarAudio.id == undefined"
+          >
+          </app-sidecar-display>
         }
       </div>
       <form [formGroup]="form">
@@ -85,10 +89,14 @@ export class AddSidecarAudioFlyOut {
   addSidecarAudio() {
     this.sidecarAudioService.addSidecarAudio({
       src: this.form.value.url!,
-      label: this.form.value.label ?? '',
+      label: this.form.value.label ?? undefined,
     });
 
     this.form.reset();
+  }
+
+  deleteSidecarAudio(sidecarAudio: SidecarAudio) {
+    this.sidecarAudioService.removeSidecarAudio(sidecarAudio);
   }
 
   @HostListener('document:keydown.enter', ['$event'])

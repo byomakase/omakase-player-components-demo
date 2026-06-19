@@ -17,21 +17,33 @@
 import {AfterViewInit, Component, computed, effect, ElementRef, inject, OnDestroy, OnInit, signal, ViewChild} from '@angular/core';
 import {PlayerComponent} from '../../player/player.component';
 import {PlayerService} from '../../player/player.service';
-import {filter, merge, Observable, Subject, takeUntil} from 'rxjs';
-import {AudioPeakProcessorMessageEvent, RouterVisualizationApi} from '@byomakase/omakase-player';
+import {EMPTY, filter, merge, Subject, switchMap, tap} from 'rxjs';
 import {VuMeterComponent} from './vu-meter.component';
 import {SidecarAudioService} from '../../fly-outs/add-sidecar-audio-fly-out/sidecar-audio-service/sidecar-audio.service';
 import {IconDirective} from '../../../common/icon/icon.directive';
 import {WindowService} from '../../../common/browser/window.service';
+import {
+  AudioHandlerApi,
+  MainMediaType,
+  OmakasePlayer,
+  PlayerAudioEventType,
+  PlayerAudioType,
+  PlayerEventType,
+  RouterVisualization,
+  RouterVisualizationApi,
+  RouterVisualizationTrack,
+  SourceUtil,
+} from '@byomakase/omakase-player';
+import {StringUtil} from '../../../common/util/string-util';
 
-export type PeakProcessor = Observable<Observable<AudioPeakProcessorMessageEvent>>;
 type VuMeterIndexUpdate = 'increment' | 'decrement';
-export interface PeakProcessorWithMetadata {
-  peakProcessor: PeakProcessor;
+export interface AudioHandlerBundle {
+  audioHandler: AudioHandlerApi;
   id: string;
   label: string;
   type: 'main' | 'sidecar';
 }
+
 @Component({
   selector: 'app-audio-layout',
   imports: [PlayerComponent, VuMeterComponent, IconDirective],
@@ -43,22 +55,22 @@ export interface PeakProcessorWithMetadata {
           <app-player></app-player>
         </div>
         <div class="router-container">
-          <div id="omakase-audio-router"></div>
+          <div id="{{ routerId }}"></div>
         </div>
       </div>
       <div #soundBoard class="sound-board">
         <div class="vu-meters-container">
-          @for (peakProcessor of peakProcessors().slice(initialVuMeterIndex(), lastVuMeterIndex() + 1); track peakProcessor.id) {
-          <app-vu-meter [isInitial]="$index === 0" [peakProcessorWithMetadata]="peakProcessor" />
+          @for (audioHandlerBundle of audioHandlerBundles().slice(initialVuMeterIndex(), lastVuMeterIndex() + 1); track audioHandlerBundle.id) {
+            <app-vu-meter [isInitial]="$index === 0" [audioHandlerBundle]="audioHandlerBundle" />
           }
         </div>
-        @if(!areAllVuMetersDisplayed() && maxVuMeters() > 0) {
-        <div [className]="canDecrementVuMeterIndex() ? 'left-arrow-container' : 'left-arrow-container arrow-container-disabled'" (click)="updateInitialVuMeterIndex('decrement')">
-          <i appIcon="arrow-left"> </i>
-        </div>
-        <div [className]="canIncrementVuMeterIndex() ? 'right-arrow-container' : 'right-arrow-container arrow-container-disabled'" (click)="updateInitialVuMeterIndex('increment')">
-          <i appIcon="arrow-right"> </i>
-        </div>
+        @if (!areAllVuMetersDisplayed() && maxVuMeters() > 0) {
+          <div [className]="canDecrementVuMeterIndex() ? 'left-arrow-container' : 'left-arrow-container arrow-container-disabled'" (click)="updateInitialVuMeterIndex('decrement')">
+            <i appIcon="arrow-left"> </i>
+          </div>
+          <div [className]="canIncrementVuMeterIndex() ? 'right-arrow-container' : 'right-arrow-container arrow-container-disabled'" (click)="updateInitialVuMeterIndex('increment')">
+            <i appIcon="arrow-right"> </i>
+          </div>
         }
       </div>
     </div>
@@ -67,29 +79,30 @@ export interface PeakProcessorWithMetadata {
 export class AudioLayoutComponent implements OnInit, OnDestroy, AfterViewInit {
   public playerService = inject(PlayerService);
   public sidecarAudioService = inject(SidecarAudioService);
-  public peakProcessors = signal<PeakProcessorWithMetadata[]>([]);
+  public audioHandlerBundles = signal<AudioHandlerBundle[]>([]);
   private _audioRouterVisualization?: RouterVisualizationApi;
   private _destroyed$ = new Subject<void>();
   private _soundBoardWidth = signal<number | undefined>(undefined);
   private resizeObserver?: ResizeObserver;
   public maxVuMeters = signal<number>(0);
+  public routerId = 'omakase-audio-router';
   private windowService = inject(WindowService);
 
   public areAllVuMetersDisplayed = computed(() => {
     if (this._soundBoardWidth() === undefined) {
       return true;
     }
-    return this.maxVuMeters() >= this.peakProcessors().length;
+    return this.maxVuMeters() >= this.audioHandlerBundles().length;
   });
 
   @ViewChild('soundBoard') private soundBoardElementRef!: ElementRef;
 
   public initialVuMeterIndex = signal<number>(0);
   public lastVuMeterIndex = computed<number>(() => {
-    return Math.max(Math.min(this.initialVuMeterIndex() + this.maxVuMeters() - 1, this.peakProcessors().length - 1), this.initialVuMeterIndex());
+    return Math.max(Math.min(this.initialVuMeterIndex() + this.maxVuMeters() - 1, this.audioHandlerBundles().length - 1), this.initialVuMeterIndex());
   });
 
-  public canIncrementVuMeterIndex = computed(() => this.initialVuMeterIndex() + this.maxVuMeters() < this.peakProcessors().length);
+  public canIncrementVuMeterIndex = computed(() => this.initialVuMeterIndex() + this.maxVuMeters() < this.audioHandlerBundles().length);
   public canDecrementVuMeterIndex = computed(() => this.initialVuMeterIndex() > 0);
 
   constructor() {
@@ -104,14 +117,14 @@ export class AudioLayoutComponent implements OnInit, OnDestroy, AfterViewInit {
       const maxVuMeters = Math.max(Math.floor(soundBoardWidth / 150) - 1, 0);
       if (maxVuMeters !== this.maxVuMeters()) {
         this.maxVuMeters.set(maxVuMeters);
-        if (maxVuMeters >= this.peakProcessors().length) {
+        if (maxVuMeters >= this.audioHandlerBundles().length) {
           this.initialVuMeterIndex.set(0);
-        } else if (this.lastVuMeterIndex() === this.peakProcessors().length - 1) {
+        } else if (this.lastVuMeterIndex() === this.audioHandlerBundles().length - 1) {
           this.initialVuMeterIndex.set(Math.max(0, this.lastVuMeterIndex() - maxVuMeters));
         }
       }
 
-      if (this.peakProcessors().length && this.lastVuMeterIndex() - this.initialVuMeterIndex() < this.maxVuMeters() - 1) {
+      if (this.audioHandlerBundles().length && this.lastVuMeterIndex() - this.initialVuMeterIndex() < this.maxVuMeters() - 1) {
         this.initialVuMeterIndex.set(Math.max(0, this.lastVuMeterIndex() - maxVuMeters + 1));
       }
     });
@@ -146,98 +159,156 @@ export class AudioLayoutComponent implements OnInit, OnDestroy, AfterViewInit {
   }
 
   ngOnInit(): void {
-    this.playerService.onCreated$.pipe(takeUntil(this._destroyed$)).subscribe((player) => {
-      if (!player) {
-        delete this._audioRouterVisualization;
-        this.peakProcessors.set([]);
-        this.initialVuMeterIndex.set(0);
-        return;
-      }
+    this.playerService
+      .observeMediaLoads(this._destroyed$)
+      .pipe(
+        switchMap((omakasePlayer) => {
+          this._audioRouterVisualization?.destroy();
+          delete this._audioRouterVisualization;
+          this.audioHandlerBundles.set([]);
+          this.initialVuMeterIndex.set(0);
 
-      if (this.windowService.userAgent !== 'safari') {
-        // safari does not support main audio vu meter
-        merge(player.audio.onAudioLoaded$, player.audio.onAudioSwitched$)
-          .pipe(
-            takeUntil(this._destroyed$),
-            filter((event) => !!event?.activeAudioTrack)
-          )
-          .subscribe((audioEvent) => {
-            if (audioEvent?.activeAudioTrack) {
-              const peakProcessor: PeakProcessorWithMetadata = {
-                peakProcessor: player.audio.createMainAudioPeakProcessor(),
-                id: audioEvent.activeAudioTrack.id ?? 'main',
-                type: 'main',
-                label: audioEvent.activeAudioTrack.label,
-              };
+          if (!omakasePlayer) return EMPTY;
 
-              this.peakProcessors.update((prev) => [peakProcessor, ...prev.filter((pp) => pp.type !== 'main')]);
+          if (this.windowService.userAgent === 'safari' && omakasePlayer.player.mainMedia?.mainMediaType === MainMediaType.HLS) {
+            // safari does not support main audio vu meter for HLS
+            return omakasePlayer.player.audio.onEvent$.pipe(
+              filter(() => !!omakasePlayer.player.mainMedia),
+              filter(
+                (event) =>
+                  event.type === PlayerAudioEventType.PLAYER_AUDIO_TRACK_SWITCHED ||
+                  event.type === PlayerAudioEventType.PLAYER_AUDIO_TRACK_LOADED ||
+                  event.type === PlayerAudioEventType.PLAYER_AUDIO_TRACK_UNLOADED
+              ),
+              tap(() => this.setUpSidecarAudioControls(omakasePlayer))
+            );
+          }
 
-              if (!this._audioRouterVisualization) {
-                this.initializeAudioRouter();
-              } else {
-                this._audioRouterVisualization.updateMainTrack({
-                  name: audioEvent.activeAudioTrack.label,
-                });
-              }
-            }
-          });
-      }
+          this.setUpMainAudioControl(omakasePlayer);
+          this.setUpSidecarAudioControls(omakasePlayer);
 
-      merge(player.audio.onSidecarAudioChange$, player.audio.onSidecarAudioRemove$, player.audio.onSidecarAudioLoaded$)
-        .pipe(takeUntil(this._destroyed$))
-        .subscribe(() => {
-          const activeSidecarIds = player.audio.getActiveSidecarAudioTracks().map((track) => track.id);
-          const activeSidecarPeakProcessorsIds = this.peakProcessors()
-            .filter((pp) => pp.type === 'sidecar')
-            .map((pp) => pp.id);
-          const filteredPeakProcessors = this.peakProcessors().filter((pp) => pp.type === 'main' || activeSidecarIds.includes(pp.id));
-          const newPeakProcessors = activeSidecarIds
-            .filter((id) => !activeSidecarPeakProcessorsIds.includes(id))
-            .map((id) => {
-              return {
-                id: id,
-                type: 'sidecar',
-                peakProcessor: player.audio.createSidecarAudioPeakProcessor(id),
-                label: player.audio.getSidecarAudio(id)!.audioTrack.label,
-              } as PeakProcessorWithMetadata;
-            });
+          return merge(
+            omakasePlayer.player.onEvent$.pipe(
+              filter((event) => event.type === PlayerEventType.PLAYER_MAIN_MEDIA_UNLOADING),
+              tap(() => {
+                this._audioRouterVisualization?.destroy();
+                delete this._audioRouterVisualization;
+                this.audioHandlerBundles.set([]);
+              })
+            ),
+            omakasePlayer.player.audio.onEvent$.pipe(
+              filter(() => !!omakasePlayer.player.mainMedia),
+              filter((event) => event.type === PlayerAudioEventType.PLAYER_AUDIO_TRACK_SWITCHED),
+              tap(() => this.setUpMainAudioControl(omakasePlayer))
+            ),
+            omakasePlayer.player.audio.onEvent$.pipe(
+              filter(() => !!omakasePlayer.player.mainMedia),
+              filter(
+                (event) =>
+                  event.type === PlayerAudioEventType.PLAYER_AUDIO_TRACK_SWITCHED ||
+                  event.type === PlayerAudioEventType.PLAYER_AUDIO_TRACK_LOADED ||
+                  event.type === PlayerAudioEventType.PLAYER_AUDIO_TRACK_UNLOADED
+              ),
+              tap(() => this.setUpSidecarAudioControls(omakasePlayer))
+            )
+          );
+        })
+      )
+      .subscribe();
+  }
 
-          this.peakProcessors.set([...filteredPeakProcessors, ...newPeakProcessors]);
-          this.initializeAudioRouter();
-        });
-    });
+  private setUpMainAudioControl(omakasePlayer: OmakasePlayer): void {
+    const activeMainTrack = omakasePlayer.player.audio.state.tracks[PlayerAudioType.MAIN].find((t) => t.active);
+    if (!activeMainTrack) {
+      return;
+    }
+
+    const mainHandler = omakasePlayer.player.audio.getHandler(PlayerAudioType.MAIN);
+    if (!mainHandler) {
+      return;
+    }
+
+    const audioHandlerBundle: AudioHandlerBundle = {
+      audioHandler: mainHandler,
+      id: 'main',
+      type: 'main',
+      label: omakasePlayer.track.get(activeMainTrack.trackId)?.label ?? 'main',
+    };
+
+    this.initializeAudioRouter();
+    mainHandler.createPeakProcessor().subscribe();
+    this.audioHandlerBundles.update((prev) => [audioHandlerBundle, ...prev.filter((b) => b.type !== 'main')]);
+  }
+
+  private setUpSidecarAudioControls(omakasePlayer: OmakasePlayer): void {
+    const activeSidecarTracks = omakasePlayer.player.audio.state.tracks[PlayerAudioType.SIDECAR].filter((t) => t.active);
+    const activeSidecarIds = activeSidecarTracks.map((t) => t.trackId);
+    const existingSidecarBundleIds = this.audioHandlerBundles()
+      .filter((audioHandlerBundle) => audioHandlerBundle.type === 'sidecar')
+      .map((audioHandlerBundle) => audioHandlerBundle.id);
+
+    const filteredAudioHandlerBundles = this.audioHandlerBundles().filter((audioHandlerBundle) => audioHandlerBundle.type === 'main' || activeSidecarIds.includes(audioHandlerBundle.id));
+
+    const newAudioHandlerBundles = activeSidecarTracks
+      .filter((t) => !existingSidecarBundleIds.includes(t.trackId))
+      .map((trackState) => {
+        const handler = omakasePlayer.player.audio.getHandler(PlayerAudioType.SIDECAR, trackState.trackId)!;
+        const track = omakasePlayer.track.get(trackState.trackId)!;
+        return {
+          id: trackState.trackId,
+          type: 'sidecar',
+          audioHandler: handler,
+          label: track.label ?? StringUtil.leafUrlToken(SourceUtil.resolveUrlFromSource(track.source!)),
+        } as AudioHandlerBundle;
+      });
+
+    this.audioHandlerBundles.set([...filteredAudioHandlerBundles, ...newAudioHandlerBundles]);
+    this.initializeAudioRouter();
+    newAudioHandlerBundles.forEach((audioHandlerBundle) => audioHandlerBundle.audioHandler.createPeakProcessor().subscribe());
   }
 
   /**
    * Initializes audio router
    */
   public initializeAudioRouter() {
-    const outputNumber = this.playerService.omakasePlayer!.audio.getAudioContext().destination.maxChannelCount >= 6 ? 6 : 2;
-    const sidecarTracks = this.playerService.omakasePlayer!.audio.getActiveSidecarAudioTracks().map((track) => {
-      return {
-        trackId: track.id,
-        name: track.label,
-        maxInputNumber: 6,
-        inputLabels: ['L', 'R', 'C', 'LFE', 'LS', 'RS'],
-      };
-    });
+    this._audioRouterVisualization?.destroy();
 
-    const mainTrack =
-      this.windowService.userAgent === 'safari'
+    const omakasePlayer = this.playerService.omakasePlayer!;
+    const outputNumber = omakasePlayer.player.audio.audioContext.destination.maxChannelCount >= 6 ? 6 : 2;
+
+    const sidecarTracks: RouterVisualizationTrack[] = omakasePlayer.player.audio.state.tracks[PlayerAudioType.SIDECAR]
+      .filter((t) => t.active && !!omakasePlayer.player.audio.getHandler(PlayerAudioType.SIDECAR, t.trackId))
+      .map((trackState) => {
+        const track = omakasePlayer.track.get(trackState.trackId)!;
+        return {
+          trackId: trackState.trackId,
+          name: track.label ?? StringUtil.leafUrlToken(SourceUtil.resolveUrlFromSource(track.source!)),
+          maxInputNumber: 6,
+          inputLabels: ['L', 'R', 'C', 'LFE', 'LS', 'RS'],
+        };
+      });
+
+    const activeMainTrackState = omakasePlayer.player.audio.state.tracks[PlayerAudioType.MAIN].find((t) => t.active);
+    const mainTrack: RouterVisualizationTrack | undefined =
+      (this.windowService.userAgent === 'safari' && omakasePlayer.player.mainMedia?.mainMediaType === MainMediaType.HLS) || !activeMainTrackState
         ? undefined
         : {
-            name: this.playerService.omakasePlayer!.audio.getActiveAudioTrack()?.label ?? 'main',
             maxInputNumber: 6,
             inputLabels: ['L', 'R', 'C', 'LFE', 'LS', 'RS'],
+            name: omakasePlayer.track.get(activeMainTrackState.trackId)?.label ?? 'main',
           };
 
-    this._audioRouterVisualization = this.playerService.omakasePlayer!.initializeRouterVisualization({
-      size: 'large',
-      outputNumber,
-      routerVisualizationHTMLElementId: 'omakase-audio-router',
-      outputLabels: ['L', 'R', 'C', 'LFE', 'LS', 'RS'],
-      mainTrack: mainTrack,
-      sidecarTracks: sidecarTracks,
-    });
+    const visualizationTracks = mainTrack ? [mainTrack, ...sidecarTracks] : sidecarTracks;
+
+    this._audioRouterVisualization = new RouterVisualization(
+      {
+        size: 'large',
+        routerVisualizationHTMLElementId: this.routerId,
+        outputNumber,
+        outputLabels: ['L', 'R', 'C', 'LFE', 'LS', 'RS'],
+        visualizationTracks,
+      },
+      omakasePlayer
+    );
   }
 }

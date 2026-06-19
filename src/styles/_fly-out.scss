@@ -256,6 +256,20 @@
         line-height: 28px;
       }
 
+      select {
+        width: 300px;
+        border: none;
+        border-radius: none;
+        margin-right: 10px;
+        font-family: variables.$font-family-roboto;
+        font-weight: 400;
+        font-size: 15px;
+        line-height: 28px;
+        height: 50px;
+
+        padding: 2px 1em 2px 1em;
+      }
+
       .button-wrapper {
         width: 100%;
         display: flex;

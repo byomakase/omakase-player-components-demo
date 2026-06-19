@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-import {Dimension, ImageButton, TimelineNode} from '@byomakase/omakase-player';
+import {ImageButton, TimelineNode, Dimension} from '@byomakase/omakase-player';
 import type {TextControl, TextControlState} from './text-control';
 
 export interface TextControlConfig {

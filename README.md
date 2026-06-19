@@ -165,7 +165,7 @@ min-max: False
 Currently supported media formats are:
 
 | Media type        | Formats       |
-|-----------------|---------------|
+| ----------------- | ------------- |
 | Main media        | M3U8, MP4     |
 | Sidecar audio     | AAC, AC3, MP4 |
 | Sidecar text      | VTT           |
@@ -202,6 +202,7 @@ To make this app easier to use, we have included links to various media and side
 - [Meridian Woman Character On-Screen Marker Track](https://github-media.assets.byomakase.org/meridian_onscreen-woman_period_omp_11m58s.vtt)
 
 ### Observation Track
+
 - [Meridian Min-Max-Average Video Bitrate Observation Track](https://github-media.assets.byomakase.org/meridian_video_bitrate_2-sec_min_max_omp_11m58s.vtt)
 - [Meridian Random Data Observation Track](https://github-media.assets.byomakase.org/meridian_random_0_to_100_2-sec_omp_11m58s.vtt)
 

@@ -15,5 +15,10 @@
  */
 
 import {Routes} from '@angular/router';
+import {AppLocalComponent} from './local.component';
+import {AppDetachedComponent} from './detached/detached.component';
 
-export const routes: Routes = [];
+export const routes: Routes = [
+  {path: 'detached', component: AppDetachedComponent},
+  {path: '', component: AppLocalComponent},
+];

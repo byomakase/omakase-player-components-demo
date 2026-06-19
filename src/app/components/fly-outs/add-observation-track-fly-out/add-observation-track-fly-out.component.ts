@@ -24,8 +24,8 @@ import {ColorPickerComponent} from '../../../common/controls/color-picker/color-
 import {CheckboxComponent} from '../../../common/controls/checkbox/checkbox.component';
 import {ColorSquareComponent} from '../../../common/controls/color-picker/multicolor-square.component';
 import {MarkerTrackDisplay} from '../add-markers-fly-out/marker-track-dispaly.component';
-import {MarkerTrack, MarkerTrackService} from '../add-markers-fly-out/marker-track.service';
-import {ObservationTrack, ObservationTrackService, ObservationTrackVisualization} from './observation-track.service';
+import {SidecarMarkerTrack, MarkerTrackService} from '../add-markers-fly-out/marker-track.service';
+import {SidecarObservationTrack, ObservationTrackService, ObservationTrackVisualization} from './observation-track.service';
 import {ObservationTrackDisplay} from './observation-track-display.component';
 import {ColorService} from '../../../common/services/color.service';
 import {ColorResolver} from '../../../common/util/color-util';
@@ -171,7 +171,7 @@ export class AddObservationTrackFlyOut {
     this.form.controls.visualization.setValue('');
   }
 
-  deleteObservationTrack(observationTrack: ObservationTrack) {
+  deleteObservationTrack(observationTrack: SidecarObservationTrack) {
     this.observationTrackService.removeObservationTrack(observationTrack);
   }
 

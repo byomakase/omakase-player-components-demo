@@ -31,6 +31,10 @@ import {IconArrowLeft} from './svg/icon-arrow-left';
 import {IconObservation} from './svg/icon-observation';
 import {IconCheckboxCheckedDisabled} from './svg/icon-checkbox-checked-disabled';
 import {IconCheckboxUncheckedDisabled} from './svg/icon-checkbox-unchecked-disabled';
+import {IconDownload} from './svg/icon-download';
+import {IconTrashCan} from './svg/icon-trash-can';
+import {IconChevronDown} from './svg/icon-chevron-down';
+import {IconChevronRight} from './svg/icon-chevron-right';
 
 export type IconName =
   | 'omakase-logo'
@@ -48,7 +52,11 @@ export type IconName =
   | 'checkbox-unchecked-disabled'
   | 'arrow-right'
   | 'arrow-left'
-  | 'observation';
+  | 'observation'
+  | 'download'
+  | 'trash-can'
+  | 'chevron-down'
+  | 'chevron-right';
 
 @Injectable({
   providedIn: 'root',
@@ -71,6 +79,10 @@ export class IconService {
     'arrow-right': IconArrowRight,
     'arrow-left': IconArrowLeft,
     'observation': IconObservation,
+    'download': IconDownload,
+    'trash-can': IconTrashCan,
+    'chevron-down': IconChevronDown,
+    'chevron-right': IconChevronRight,
   };
 
   constructor() {}

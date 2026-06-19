@@ -16,9 +16,10 @@
 
 import {Component, HostBinding, HostListener, inject, OnInit} from '@angular/core';
 import {PlayerService} from './player.service';
-import {OmakasePlayerUtil} from '../../common/util/omakase-player-util';
 import {WindowService} from '../../common/browser/window.service';
 import {LayoutService} from '../layout-menu/layout.service';
+import {HelpMenuGroupInsertPosition} from '@byomakase/omakase-player';
+import {OmakasePlayerUtil} from '../../common/util/omakase-player-util';
 @Component({
   selector: 'app-player',
   imports: [],
@@ -33,22 +34,22 @@ export class PlayerComponent implements OnInit {
   constructor() {}
 
   ngOnInit(): void {
-    this.playerService.onCreated$.subscribe((player) => {
-      this.displayBackgroundDiv = player === undefined && !this.playerService.isReloading;
+    this.playerService.onCreated$.subscribe((omakasePlayer) => {
+      this.displayBackgroundDiv = omakasePlayer === undefined && !this.playerService.isReloading;
 
-      if (player) {
+      if (omakasePlayer) {
         document.querySelector('media-controller')?.setAttribute('nohotkeys', ''); // disable media chrome hot keys
         if (this.resolveHelpMenuSupport()) {
-          player.video.clearHelpMenuGroups();
+          omakasePlayer.chroming.clearHelpMenuGroups();
 
-          player.video.appendHelpMenuGroup(OmakasePlayerUtil.getKeyboardShortcutsHelpMenuGroup(this.windowService.platform));
+          omakasePlayer.chroming.addHelpMenuGroup(OmakasePlayerUtil.getKeyboardShortcutsHelpMenuGroup(this.windowService.platform), HelpMenuGroupInsertPosition.APPEND);
         }
       }
     });
   }
 
   private resolveHelpMenuSupport() {
-    const theme = this.layoutService.getPlayerConfiguration(this.playerService.isMainMediaAudio!).playerChroming?.theme;
+    const theme = this.layoutService.getPlayerConfiguration(this.playerService.isMainMediaAudio!).chromingTheme;
     if (theme === 'CHROMELESS' || theme === 'STAMP') {
       return false;
     }

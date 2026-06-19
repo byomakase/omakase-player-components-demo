@@ -22,8 +22,8 @@ import {FormControl, ReactiveFormsModule} from '@angular/forms';
   imports: [ReactiveFormsModule],
   template: `
     <select [formControl]="selectControl">
-      @for(theme of themes(); track theme) {
-      <option [value]="theme">{{ resolveThemeDisplayName(theme) }}</option>
+      @for (theme of themes(); track theme) {
+        <option [value]="theme">{{ resolveThemeDisplayName(theme) }}</option>
       }
     </select>
   `,

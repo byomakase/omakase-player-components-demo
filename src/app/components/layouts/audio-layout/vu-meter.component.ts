@@ -14,12 +14,15 @@
  * limitations under the License.
  */
 
-import {AfterViewInit, Component, ElementRef, inject, input, OnDestroy, signal, ViewChild} from '@angular/core';
+import {AfterViewInit, Component, DestroyRef, ElementRef, inject, Injector, input, signal, ViewChild} from '@angular/core';
+import {takeUntilDestroyed, toObservable} from '@angular/core/rxjs-interop';
 import {PlayerService} from '../../player/player.service';
-import {PeakMeterConfig, VuMeter, VuMeterApi} from '@byomakase/vu-meter';
-import {PeakProcessorWithMetadata} from './audio-layout.component';
+import {AudioPeakProcessorMessageEvent, PeakMeterConfig, VuMeter, VuMeterApi} from '@byomakase/vu-meter';
+import {AudioHandlerBundle} from './audio-layout.component';
 import {SidecarAudioService} from '../../fly-outs/add-sidecar-audio-fly-out/sidecar-audio-service/sidecar-audio.service';
 import {KnobWrapperComponent} from '../../../common/controls/knob/knob.component';
+import {AudioHandlerEventType, AudioPeakProcessorEventType} from '@byomakase/omakase-player';
+import {filter, map, of, switchMap} from 'rxjs';
 
 const peakMeterConfig: Partial<PeakMeterConfig> = {
   vertical: true,
@@ -44,75 +47,63 @@ const peakMeterConfig: Partial<PeakMeterConfig> = {
   template: `
     <div class="vu-meter-container">
       <div class="vu-meter-container-inner" #vuMeter></div>
-      <div class="label">{{ peakProcessorWithMetadata().label }}</div>
+      <div class="label">{{ audioHandlerBundle().label }}</div>
     </div>
     <div class="audio-knobs">
       <div class="audio-knob-container">
         <app-knob-wrapper [min]="0" [max]="1" [value]="volume()" (valueChange)="changeGain($event)"></app-knob-wrapper>
       </div>
       <div class="audio-knobs-divider"></div>
-      @if( isInitial()) {
-      <div class="audio-knobs-label">GAIN</div>
+      @if (isInitial()) {
+        <div class="audio-knobs-label">GAIN</div>
       }
     </div>
   `,
 })
-export class VuMeterComponent implements AfterViewInit, OnDestroy {
+export class VuMeterComponent implements AfterViewInit {
   public playerService = inject(PlayerService);
   public sidecarAudioService = inject(SidecarAudioService);
-  public peakProcessorWithMetadata = input.required<PeakProcessorWithMetadata>();
+  public audioHandlerBundle = input.required<AudioHandlerBundle>();
   public isInitial = input<boolean>(false);
   public volume = signal<number>(1);
+  private destroyRef = inject(DestroyRef);
+  private injector = inject(Injector);
 
   @ViewChild('vuMeter') vuMeterElementRef!: ElementRef;
 
   private _vuMeter?: VuMeterApi;
 
-  constructor() {}
-
   private tryCreateVuMeter() {
-    let channelCount = 6;
-
+    const channelCount = 6;
     this.vuMeterElementRef.nativeElement.innerHTML = '';
 
-    this._vuMeter = new VuMeter(channelCount, this.vuMeterElementRef.nativeElement, peakMeterConfig).attachSource(this.peakProcessorWithMetadata().peakProcessor);
+    const handler = this.audioHandlerBundle().audioHandler;
+    const source = of(
+      handler.onPeakProcessorEvent$.pipe(
+        filter((e) => e.type === AudioPeakProcessorEventType.AUDIO_PEAK_PROCESSOR_MESSAGE),
+        map((e) => ({data: e.data}) as unknown as AudioPeakProcessorMessageEvent)
+      )
+    );
+
+    this._vuMeter = new VuMeter(channelCount, this.vuMeterElementRef.nativeElement, peakMeterConfig).attachSource(source);
   }
 
   ngAfterViewInit(): void {
-    this.volume.set(this.getGain());
-
-    this.tryCreateVuMeter();
+    toObservable(this.audioHandlerBundle, {injector: this.injector})
+      .pipe(
+        takeUntilDestroyed(this.destroyRef),
+        switchMap((bundle) => {
+          this.volume.set(bundle.audioHandler.volume);
+          this.tryCreateVuMeter();
+          return bundle.audioHandler.onEvent$.pipe(
+            filter((e) => e.type === AudioHandlerEventType.AUDIO_HANDLER_CHANGE)
+          );
+        })
+      )
+      .subscribe((e) => this.volume.set(e.data.state.volume));
   }
-
-  ngOnDestroy(): void {}
 
   changeGain(gain: number) {
-    if (
-      this.playerService.omakasePlayer?.audio
-        .getActiveSidecarAudioTracks()
-        .map((track) => track.id)
-        .includes(this.peakProcessorWithMetadata().id)
-    ) {
-      //   this.playerService.omakasePlayer!.audio.setSidecarAudioEffectsParams(this.peakProcessorWithMetadata().id, new OmpAudioEffectGainParam(gain), {type: 'gain'});
-      this.playerService.omakasePlayer!.audio.setSidecarVolume(gain, [this.peakProcessorWithMetadata().id]);
-    } else {
-      //   this.playerService.omakasePlayer!.audio.setMainAudioEffectsParams(new OmpAudioEffectGainParam(gain), {type: 'gain'});
-      this.playerService.omakasePlayer!.video.setVolume(gain);
-    }
-  }
-
-  getGain() {
-    if (
-      this.playerService.omakasePlayer?.audio
-        .getActiveSidecarAudioTracks()
-        .map((track) => track.id)
-        .includes(this.peakProcessorWithMetadata().id)
-    ) {
-      //   this.playerService.omakasePlayer!.audio.setSidecarAudioEffectsParams(this.peakProcessorWithMetadata().id, new OmpAudioEffectGainParam(gain), {type: 'gain'});
-      return this.playerService.omakasePlayer!.audio.getSidecarAudio(this.peakProcessorWithMetadata().id)!.getVolume();
-    } else {
-      //   this.playerService.omakasePlayer!.audio.setMainAudioEffectsParams(new OmpAudioEffectGainParam(gain), {type: 'gain'});
-      return this.playerService.omakasePlayer!.video.getVolume();
-    }
+    this.audioHandlerBundle().audioHandler.setVolume(gain);
   }
 }

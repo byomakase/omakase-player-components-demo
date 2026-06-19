@@ -14,13 +14,15 @@
  * limitations under the License.
  */
 
-import {ConfigWithOptionalStyle} from '@byomakase/omakase-player';
-import {BaseGroupingLane, BaseGroupingLaneConfig} from '../base-grouping-lane';
+import {BaseGroupingLane, BaseGroupingLaneConfig, BaseGroupingLaneStyle} from '../base-grouping-lane';
+import {ConfigAndStyle, LabelLaneConfig} from '@byomakase/omakase-player';
 
 export interface ObservationTrackGroupingLaneConfig extends BaseGroupingLaneConfig {}
 
-export class ObservationTrackGroupingLane extends BaseGroupingLane<ObservationTrackGroupingLaneConfig> {
-  constructor(config: ConfigWithOptionalStyle<ObservationTrackGroupingLaneConfig>) {
-    super(config);
+export interface ObservationTrackGroupingLaneStyle extends BaseGroupingLaneStyle {}
+
+export class ObservationTrackGroupingLane extends BaseGroupingLane<ObservationTrackGroupingLaneConfig, ObservationTrackGroupingLaneStyle> {
+  constructor(configAndStyle: ConfigAndStyle<ObservationTrackGroupingLaneConfig, ObservationTrackGroupingLaneStyle> & Pick<LabelLaneConfig, 'text'>) {
+    super(configAndStyle);
   }
 }

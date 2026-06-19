@@ -1,11 +1,11 @@
 import {inject, Injectable, Injector, signal} from '@angular/core';
 import {SimpleLayoutPlayerService} from './simple-layout-player.service';
-import {OmakasePlayer, OmakasePlayerConfig} from '@byomakase/omakase-player';
-import {BehaviorSubject, Subscription} from 'rxjs';
+import {StampLayoutPlayerService} from './stamp-layout-player.service';
+import {OmakasePlayer, OmakasePlayerConfig, PlayerEventType} from '@byomakase/omakase-player';
+import {BehaviorSubject, EMPTY, filter, merge, Observable, of, Subscription, switchMap, takeUntil} from 'rxjs';
 import {Layout} from '../../model/session.model';
 import {LayoutService} from '../layout-menu/layout.service';
 import {AbstractPlayerService} from './player.service.abstract';
-import {StampLayoutPlayerService} from './stamp-layout-player.service';
 
 @Injectable({providedIn: 'root'})
 export class PlayerService extends AbstractPlayerService {
@@ -34,12 +34,6 @@ export class PlayerService extends AbstractPlayerService {
     switch (layout) {
       case 'stamp':
         return this.injector.get(StampLayoutPlayerService);
-      case 'simple':
-      case 'audio':
-      case 'marker':
-      case 'timeline':
-      case 'chromeless':
-      case 'hybrid':
       default:
         return this.injector.get(SimpleLayoutPlayerService);
     }
@@ -79,6 +73,10 @@ export class PlayerService extends AbstractPlayerService {
     return this.currentService.thumbnailTrackUrl;
   }
 
+  get thumbnailTrack() {
+    return this.currentService.thumbnailTrack;
+  }
+
   /**
    * Creates a new omakase player instance
    *
@@ -109,5 +107,37 @@ export class PlayerService extends AbstractPlayerService {
 
   get isMainMediaAudio() {
     return this.currentService.isMainMediaAudio;
+  }
+
+  /**
+   * Returns an Observable that emits the OmakasePlayer each time main media is loaded,
+   * or undefined when the player is destroyed.
+   * Callers can pipe switchMap on the result for inner subscriptions that auto-teardown on each new emission.
+   *
+   * @param teardowns - additional Observables to terminate the outer subscription (e.g. destroyed$)
+   */
+  observeMediaLoads(...teardowns: Observable<any>[]): Observable<OmakasePlayer | undefined> {
+    let result$: Observable<OmakasePlayer | undefined> = this.onCreated$.pipe(
+      switchMap((omakasePlayer) => {
+        if (!omakasePlayer) return of(undefined);
+
+        return new Observable<OmakasePlayer>((observer) => {
+          if (omakasePlayer.player.mainMedia) {
+            observer.next(omakasePlayer);
+          }
+          omakasePlayer.player.onEvent$
+            .pipe(filter((event) => event.type === PlayerEventType.PLAYER_MAIN_MEDIA_LOADED))
+            .subscribe(() => {
+              observer.next(omakasePlayer);
+            });
+        });
+      })
+    );
+
+    if (teardowns.length > 0) {
+      result$ = result$.pipe(takeUntil(merge(...teardowns)));
+    }
+
+    return result$;
   }
 }

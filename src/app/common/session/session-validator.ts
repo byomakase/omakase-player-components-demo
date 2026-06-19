@@ -30,6 +30,7 @@ const sidecarMediaSchema = z.object({
   label: z.string().optional(),
   type: z.enum(['audio', 'text', 'marker', 'thumbnail', 'observation']),
   url: z.url(),
+  engine: z.enum(['EMBEDDED', 'NATIVE', 'MEDIA_CAPTIONS', 'IMSC']).optional(),
 });
 
 export const chartTypeSchema = z.enum(['bar_chart', 'line_chart', 'led_chart']);
@@ -43,7 +44,7 @@ export const trackVisualizationSchema = z.object({
 });
 
 export const presentationSchema = z.object({
-  layouts: z.array(z.enum(['simple', 'audio', 'marker', 'timeline', 'stamp', 'chromeless', 'hybrid'])),
+  layouts: z.array(z.enum(['simple', 'audio', 'marker', 'timeline', 'stamp', 'chromeless', 'hybrid', 'text'])),
   read_only: z.boolean().optional(),
   track_visualization: z.record(z.string(), trackVisualizationSchema).optional(),
   disable_media_fly_outs: z.boolean().optional(),

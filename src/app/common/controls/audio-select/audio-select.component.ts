@@ -16,11 +16,12 @@
 
 import {AfterViewInit, Component, computed, OnDestroy, output, signal} from '@angular/core';
 import {FormControl, ReactiveFormsModule} from '@angular/forms';
-import {OmpAudioTrack} from '@byomakase/omakase-player';
-import {Subject, takeUntil} from 'rxjs';
+import {EMPTY, filter, Subject, switchMap} from 'rxjs';
 import {PlayerService} from '../../../components/player/player.service';
 import {SidecarAudioService} from '../../../components/fly-outs/add-sidecar-audio-fly-out/sidecar-audio-service/sidecar-audio.service';
 import {StringUtil} from '../../util/string-util';
+import {Audio, FileFormatType, PlayerAudioEventType, PlayerAudioType} from '@byomakase/omakase-player';
+import {SidecarAudio} from '../../../components/fly-outs/add-sidecar-audio-fly-out/sidecar-audio-service/sidecar-audio.service.abstract';
 
 /**
  * Selection component that allows for changing currently selected audio in single audio mode.
@@ -31,67 +32,63 @@ import {StringUtil} from '../../util/string-util';
   imports: [ReactiveFormsModule],
   template: `
     <select [formControl]="selectControl">
-      @if (isAudioLoaded()) { @for(track of audioTracks(); track track) {
-      <option [value]="track.id">{{ resolveTrackDisplayName(track) }}</option>
-      } }
+      @if (isAudioLoaded()) {
+        @for (track of audioTracks(); track track) {
+          <option [value]="track.id">{{ resolveTrackDisplayName(track) }}</option>
+        }
+      }
     </select>
   `,
 })
 export class SidecarAudioSelectComponent implements AfterViewInit, OnDestroy {
-  sidecarSelect = output<OmpAudioTrack>();
+  sidecarSelect = output<string>();
   selectControl = new FormControl();
 
-  private readonly mainAudioTracks = signal<OmpAudioTrack[]>([]);
+  private readonly mainAudioTracks = signal<Audio[]>([]);
 
   isAudioLoaded = signal(false);
   private destroyed$ = new Subject<void>();
 
-  readonly audioTracks = computed<OmpAudioTrack[]>(() => {
+  readonly audioTracks = computed(() => {
     return [...this.mainAudioTracks(), ...this.sidecarAudioService.loadedSidecarAudios()];
   });
 
-  constructor(private playerService: PlayerService, private sidecarAudioService: SidecarAudioService) {}
+  constructor(
+    private playerService: PlayerService,
+    private sidecarAudioService: SidecarAudioService
+  ) {}
 
   ngAfterViewInit(): void {
     this.selectControl.valueChanges.subscribe((id) => {
-      if (
-        this.mainAudioTracks()
-          .map((track) => track.id)
-          .includes(id)
-      ) {
-        this.sidecarAudioService.deactivateAllSidecarAudios();
-        this.playerService.omakasePlayer?.audio.setActiveAudioTrack(id);
-        this.playerService.omakasePlayer?.video.unmute();
-      } else {
-        this.playerService.omakasePlayer?.video.mute();
-        this.playerService.omakasePlayer?.audio.activateSidecarAudioTracks([id], true);
-      }
+      // this.sidecarAudioService.deactivateAllSidecarAudios();
+      this.playerService.omakasePlayer?.player.audio.switchTrack(id);
     });
 
-    this.sidecarAudioService.onSelectedAudioTrackChange$.pipe(takeUntil(this.destroyed$)).subscribe((activeTrack) => {
-      this.selectControl.setValue(activeTrack.id);
-    });
+    // this.sidecarAudioService.onSelectedAudioTrackChange$.pipe(takeUntil(this.destroyed$)).subscribe((activeTrack) => {
+    //   this.selectControl.setValue(activeTrack.id);
+    // });
 
-    this.playerService.onCreated$.pipe(takeUntil(this.destroyed$)).subscribe((player) => {
-      if (player) {
-        player.audio.onAudioLoaded$.subscribe((audioLoadedEvent) => {
-          if (!audioLoadedEvent) {
-            return;
+    this.playerService
+      .observeMediaLoads(this.destroyed$)
+      .pipe(
+        switchMap((omakasePlayer) => {
+          if (!omakasePlayer) {
+            return EMPTY;
           }
-          this.mainAudioTracks.set(player.audio.getAudioTracks());
+          this.mainAudioTracks.set(omakasePlayer.player.audio.state.tracks[PlayerAudioType.MAIN].map((playerAudio) => omakasePlayer.track.get(playerAudio.trackId)! as Audio));
           this.isAudioLoaded.set(true);
 
-          // resolve initial value if the player was set up before select component
-          const activeSidecarTracks = player.audio.getActiveSidecarAudioTracks();
+          this.selectControl.setValue(
+            [...omakasePlayer.player.audio.state.tracks[PlayerAudioType.MAIN], ...omakasePlayer.player.audio.state.tracks[PlayerAudioType.SIDECAR]].find((playerAudio) => playerAudio.active)!.trackId,
+            {emitEvent: false}
+          );
 
-          if (activeSidecarTracks.length) {
-            this.selectControl.setValue(activeSidecarTracks.at(0)!.id);
-          } else {
-            this.selectControl.setValue(player.audio.getActiveAudioTrack()?.id);
-          }
-        });
-      }
-    });
+          return omakasePlayer.player.audio.onEvent$.pipe(filter((event) => event.type === PlayerAudioEventType.PLAYER_AUDIO_TRACK_SWITCHED));
+        })
+      )
+      .subscribe((audioTrackSwitchedEvent) => {
+        this.selectControl.setValue(audioTrackSwitchedEvent.data.playerAudioTrack.trackId, {emitEvent: false});
+      });
   }
 
   ngOnDestroy(): void {
@@ -104,43 +101,35 @@ export class SidecarAudioSelectComponent implements AfterViewInit, OnDestroy {
    * @param track
    * @returns - Audio label used for audio track identification
    */
-  resolveTrackDisplayName(track: OmpAudioTrack) {
-    const player = this.playerService.omakasePlayer;
+  resolveTrackDisplayName(track: Audio | SidecarAudio) {
+    const omakasePlayer = this.playerService.omakasePlayer;
 
-    if (!player) {
+    if (!omakasePlayer) {
       return;
     }
 
-    if (!player.video.getVideo()) {
+    if (!omakasePlayer.player.mainMedia) {
       return;
     }
 
-    if (!track.embedded) {
+    const isEmbedded = omakasePlayer.player.audio.state.tracks[PlayerAudioType.MAIN].find((playerAudio) => playerAudio.trackId === track.id);
+
+    if (!isEmbedded) {
       if (track.label) {
         return track.label;
-      } else {
+      } else if ('src' in track) {
         return StringUtil.leafUrlToken(track.src);
       }
     }
 
-    if (track.language) {
-      return track.language.toUpperCase();
-    }
+    // if ('state' in track && track.sourceFileFormatType === FileFormatType.HLS) {
+    //   return track.language.toUpperCase();
+    // }
 
     if (track.label) {
       return StringUtil.toMixedCase(track.label);
     }
 
     return 'Main Audio';
-  }
-
-  /**
-   *
-   * @returns list of playable audio tracks
-   */
-  getTracks() {
-    const mainTracks = this.playerService.omakasePlayer?.audio.getAudioTracks() ?? [];
-    const sidecarTracks = this.playerService.omakasePlayer?.audio.getSidecarAudioTracks() ?? [];
-    return [...mainTracks, ...sidecarTracks];
   }
 }

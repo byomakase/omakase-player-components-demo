@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-import {Component, HostListener, inject, signal} from '@angular/core';
+import {Component, computed, HostListener, inject, signal} from '@angular/core';
 import {FormControl, FormGroup, ReactiveFormsModule} from '@angular/forms';
 import {FlyOutService} from '../fly-out.service';
 import {IconDirective} from '../../../common/icon/icon.directive';
@@ -22,6 +22,8 @@ import {allowedNameValidator} from '../../../common/validators/allowed-name-vali
 import {SidecarTextService} from './text-sidecar.service';
 import {NgbTooltip} from '@ng-bootstrap/ng-bootstrap';
 import {SidecarDisplay} from '../common/sidecar-display.component';
+import {FileFormat, PlayerTextHandlerType} from '@byomakase/omakase-player';
+import {PlayerService} from '../../player/player.service';
 
 const urlRegex = /[-a-zA-Z0-9@:%._\+~#=]{1,256}\.[a-zA-Z0-9()]{1,6}\b([-a-zA-Z0-9()@:%_\+.~#?&//=]*)/;
 
@@ -35,23 +37,30 @@ const urlRegex = /[-a-zA-Z0-9@:%._\+~#=]{1,256}\.[a-zA-Z0-9()]{1,6}\b([-a-zA-Z0-
     <div class="body add-sidecar-body">
       <div class="sidecar-container">
         @for (sidecarText of sidecarTextService.sidecarTexts(); track sidecarText) {
-        <app-sidecar-display
-          [isDeletable]="sidecarText.id != undefined"
-          [url]="sidecarText.src"
-          [label]="sidecarText.id && sidecarTextService.noUserLabelSidecarTextIds().includes(sidecarText.id) ? '' : sidecarText.label"
-          (deleted)="sidecarTextService.removeSidecarText(sidecarText)"
-        >
-        </app-sidecar-display>
+          <app-sidecar-display
+            [isDeletable]="sidecarText.id != undefined"
+            [url]="sidecarText.src"
+            [label]="sidecarText.id && sidecarTextService.noUserLabelSidecarTextIds().includes(sidecarText.id) ? '' : sidecarText.label"
+            (deleted)="sidecarTextService.removeSidecarText(sidecarText)"
+          >
+          </app-sidecar-display>
         }
       </div>
 
       <form [formGroup]="form">
         <div class="add-sidecar-dialogue">
           <div class="input-tooltip">
-            <input formControlName="url" type="text" placeholder="URL" />
+            <input (blur)="onUrlInputUnfocus()" formControlName="url" type="text" placeholder="URL" />
             <i appIcon="question" ngbTooltip="Specify the URL of a sidecar. The following formats are supported: VTT" placement="top"></i>
           </div>
           <input formControlName="label" type="text" placeholder="Label" />
+          <div class="input-wrapper">
+            <select formControlName="engine">
+              @for (engineOption of filteredEngineOptions; track engineOption.value) {
+                <option [ngValue]="engineOption.value">{{ engineOption.label }}</option>
+              }
+            </select>
+          </div>
           <div class="button-wrapper">
             <button [disabled]="isAddDisabled()" (click)="addSidecarText()">ADD</button>
           </div>
@@ -59,22 +68,45 @@ const urlRegex = /[-a-zA-Z0-9@:%._\+~#=]{1,256}\.[a-zA-Z0-9()]{1,6}\b([-a-zA-Z0-
       </form>
     </div>
   `,
-  imports: [ReactiveFormsModule, IconDirective, SidecarDisplay, NgbTooltip],
+  imports: [ReactiveFormsModule, IconDirective, NgbTooltip, SidecarDisplay],
 })
 export class AddSidecarTextFlyOut {
   form = new FormGroup({
     label: new FormControl(''),
     url: new FormControl('', [allowedNameValidator(urlRegex)]),
+    engine: new FormControl<PlayerTextHandlerType>(PlayerTextHandlerType.MEDIA_CAPTIONS),
   });
 
+  public engineOptions = [
+    {label: 'Media Captions', value: PlayerTextHandlerType.MEDIA_CAPTIONS},
+    {label: 'Native', value: PlayerTextHandlerType.NATIVE},
+    {label: 'IMSC', value: PlayerTextHandlerType.IMSC},
+  ];
+
+  public vttFamilyEngineOptions = [
+    {label: 'Media Captions', value: PlayerTextHandlerType.MEDIA_CAPTIONS},
+    {label: 'Native', value: PlayerTextHandlerType.NATIVE},
+  ];
+
+  public mcFamilyEngineOptions = [{label: 'Media Captions', value: PlayerTextHandlerType.MEDIA_CAPTIONS}];
+
+  public imscFamilyEngineOptions = [{label: 'IMSC', value: PlayerTextHandlerType.IMSC}];
+
+  public filteredEngineOptions = this.engineOptions;
   private flyOutService = inject(FlyOutService);
   public sidecarTextService = inject(SidecarTextService);
+  private playerService = inject(PlayerService);
 
-  public isAddDisabled = signal(true);
+  public isAddDisabled = computed(() => {
+    return !(this.isUrlProbed() && this.isUrlValid());
+  });
+
+  public isUrlValid = signal(false);
+  public isUrlProbed = signal(false);
 
   constructor() {
     this.form.controls.url.valueChanges.subscribe(() => {
-      this.isAddDisabled.set(this.form.controls.url.errors != null);
+      this.isUrlValid.set(this.form.controls.url.errors == null);
     });
   }
 
@@ -86,9 +118,11 @@ export class AddSidecarTextFlyOut {
     this.sidecarTextService.addSidecarText({
       src: this.form.value.url!,
       label: this.form.value.label ?? '',
+      engine: this.form.value.engine ?? PlayerTextHandlerType.MEDIA_CAPTIONS,
     });
 
     this.form.reset();
+    this.form.controls.engine.setValue(PlayerTextHandlerType.MEDIA_CAPTIONS);
   }
 
   @HostListener('document:keydown.enter', ['$event'])
@@ -98,5 +132,40 @@ export class AddSidecarTextFlyOut {
     if (!this.isAddDisabled()) {
       this.addSidecarText();
     }
+  }
+
+  onUrlInputFocus() {
+    this.isUrlProbed.set(false);
+  }
+
+  onUrlInputUnfocus() {
+    if (!this.isUrlValid()) {
+      this.filteredEngineOptions = this.engineOptions;
+      this.form.controls.engine.setValue(PlayerTextHandlerType.MEDIA_CAPTIONS);
+
+      return;
+    }
+    this.playerService.omakasePlayer!.tools.probe(this.form.controls.url.value ?? '').subscribe((mediaProbeResult) => {
+      if (mediaProbeResult?.fileFormat && [FileFormat.TTML, FileFormat.SCC].includes(mediaProbeResult.fileFormat)) {
+        if (this.filteredEngineOptions !== this.imscFamilyEngineOptions) {
+          this.filteredEngineOptions = this.imscFamilyEngineOptions;
+          this.form.controls.engine.setValue(PlayerTextHandlerType.IMSC);
+        }
+      } else if (mediaProbeResult?.fileFormat && [FileFormat.VTT].includes(mediaProbeResult.fileFormat)) {
+        if (this.filteredEngineOptions !== this.vttFamilyEngineOptions) {
+          this.filteredEngineOptions = this.vttFamilyEngineOptions;
+          this.form.controls.engine.setValue(PlayerTextHandlerType.MEDIA_CAPTIONS);
+        }
+      } else if (mediaProbeResult?.fileFormat && [FileFormat.SRT, FileFormat.ASS].includes(mediaProbeResult.fileFormat)) {
+        if (this.filteredEngineOptions !== this.mcFamilyEngineOptions) {
+          this.filteredEngineOptions = this.mcFamilyEngineOptions;
+          this.form.controls.engine.setValue(PlayerTextHandlerType.MEDIA_CAPTIONS);
+        }
+      } else {
+        this.filteredEngineOptions = this.engineOptions;
+        this.form.controls.engine.setValue(PlayerTextHandlerType.MEDIA_CAPTIONS);
+      }
+      this.isUrlProbed.set(true);
+    });
   }
 }

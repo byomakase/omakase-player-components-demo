@@ -85,10 +85,10 @@ export class KnobWrapperComponent implements AfterViewInit, OnChanges, OnDestroy
       this.knob.setAttribute('max-angle', this.maxAngle.toString());
     }
     if (changes['value'] && this.value !== undefined) {
-      this.knob.value = this.value;
+      this.knob.value = this.value();
     }
-    if (changes['radius'] && this.value !== undefined) {
-      this.knob.setAttribute('radius', this.value);
+    if (changes['radius'] && this.radius !== undefined) {
+      this.knob.setAttribute('radius', this.radius());
     }
   }
 

@@ -17,15 +17,15 @@
 import {Component, inject, OnDestroy, signal} from '@angular/core';
 import {PlayerComponent} from '../../player/player.component';
 import {toObservable} from '@angular/core/rxjs-interop';
-import {MarkerTrackApi, MomentMarker, PeriodMarker} from '@byomakase/omakase-player';
-import {Subject, filter, take, takeUntil, skip, BehaviorSubject, combineLatest} from 'rxjs';
-import {MarkerTrackService, MarkerTrack} from '../../fly-outs/add-markers-fly-out/marker-track.service';
+import {Subject, filter, take, takeUntil, skip, BehaviorSubject, combineLatest, Observable} from 'rxjs';
+import {MarkerTrackService, SidecarMarkerTrack} from '../../fly-outs/add-markers-fly-out/marker-track.service';
 import {PlayerService} from '../../player/player.service';
 import {ColorService} from '../../../common/services/color.service';
 import {MarkerTrackSelectComponent} from '../../../common/controls/marker-track-select/marker-track-select.component';
 import {SimpleLayoutConfigProviderService, SimpleLayoutTheme} from '../../layout-menu/config-providers/simple-layout-config-provider.service';
 import {ThemeSelectComponent} from '../../../common/controls/theme-select/theme-select.component';
 import {SessionService} from '../../../common/session/session.service';
+import {ChromingMarkerBarHandlerApi, ChromingTrackDestination, PlayerEventType, TrackSource, TrackType} from '@byomakase/omakase-player';
 
 @Component({
   selector: 'app-simple-layout',
@@ -36,11 +36,12 @@ import {SessionService} from '../../../common/session/session.service';
       <app-player></app-player>
       <div class="selects-container">
         @if (isVideoLoaded()) {
-        <app-theme-select [themes]="simpleLayoutConfigProviderService.themes" [initiallySelectedTheme]="simpleLayoutConfigProviderService.getTheme()" (themeSelect)="changeSelectedTheme($event)" />
-        } @if (markerTrackService.markerTracks().length > 1) {
-        <div class="track-select-container">
-          <app-marker-track-select> </app-marker-track-select>
-        </div>
+          <app-theme-select [themes]="themes" [initiallySelectedTheme]="simpleLayoutConfigProviderService.getTheme()" (themeSelect)="changeSelectedTheme($event)" />
+        }
+        @if (markerTrackService.markerTracks().length > 1) {
+          <div class="track-select-container">
+            <app-marker-track-select> </app-marker-track-select>
+          </div>
         }
       </div>
     </div>
@@ -54,11 +55,13 @@ export class SimpleLayoutComponent implements OnDestroy {
 
   // replay subject with replay value of 1, first value should be skipped
   // inspected in angular source code, possibly subjected to change
-  private markerTrack$ = toObservable<MarkerTrack | undefined>(this.markerTrackService.activeMarkerTrack);
-
+  private markerTrack$ = toObservable<SidecarMarkerTrack | undefined>(this.markerTrackService.activeMarkerTrack);
+  private renderedMarkerTrack = signal<ChromingMarkerBarHandlerApi | undefined>(undefined);
   private playerService = inject(PlayerService);
   private sessionService = inject(SessionService);
   public isVideoLoaded = signal<boolean>(false);
+
+  public themes = [...this.simpleLayoutConfigProviderService.themes];
 
   ngOnDestroy(): void {
     this.destroyed$.next();
@@ -66,13 +69,37 @@ export class SimpleLayoutComponent implements OnDestroy {
   }
 
   constructor() {
-    combineLatest([this.markerTrack$, this.playerService.onCreated$.pipe(filter((p) => !!p))])
+    combineLatest([this.markerTrack$, this.playerService.onCreated$])
       .pipe(takeUntil(this.destroyed$))
-      .subscribe(([markerTrack, player]) => {
-        if (!markerTrack) {
-          this.playerService.omakasePlayer?.chroming.progressMarkerTrack?.removeAllMarkers();
+      .subscribe(([markerTrack, omakasePlayer]) => {
+        if (!omakasePlayer || !markerTrack) {
+          if (omakasePlayer && this.renderedMarkerTrack()) {
+            omakasePlayer.chroming.deleteMarkerBar(this.renderedMarkerTrack()!.id);
+          }
+          this.renderedMarkerTrack.set(undefined);
           return;
         }
+
+        const o$ = new Observable<void>((observer) => {
+          if (omakasePlayer.player.mainMedia) {
+            observer.next();
+            observer.complete();
+          } else {
+            omakasePlayer.player.onEvent$
+              .pipe(
+                filter((event) => event.type === PlayerEventType.PLAYER_MAIN_MEDIA_LOADED),
+                take(1)
+              )
+              .subscribe(() => {
+                observer.next();
+                observer.complete();
+              });
+          }
+        });
+
+        o$.subscribe(() => {
+          this.createMarkerTrack(markerTrack!);
+        });
 
         // this.playerService.onCreated$
         //   .pipe(
@@ -82,29 +109,40 @@ export class SimpleLayoutComponent implements OnDestroy {
         //     takeUntil(this.markerTrack$.pipe(skip(1)))
         //   )
         //   .subscribe((player) => {
-        player!.video.onVideoLoaded$
-          .pipe(
-            filter((p) => !!p),
-            takeUntil(this.destroyed$),
-            takeUntil(this.markerTrack$.pipe(skip(1)))
-          )
-          .subscribe(() => {
-            this.createMarkerTrack();
-          });
+        // player!.video.onVideoLoaded$
+        //   .pipe(
+        //     filter((p) => !!p),
+        //     takeUntil(this.destroyed$),
+        //     takeUntil(this.markerTrack$.pipe(skip(1)))
+        //   )
+        //   .subscribe(() => {
+        //     this.createMarkerTrack();
+        //   });
         // });
       });
 
-    this.playerService.onCreated$.pipe(takeUntil(this.destroyed$)).subscribe((player) => {
-      if (!player) {
+    this.playerService.onCreated$.pipe(takeUntil(this.destroyed$)).subscribe((omakasePlayer) => {
+      if (!omakasePlayer) {
         this.isVideoLoaded.set(false);
         return;
       }
-
-      player.video.onVideoLoaded$.pipe(takeUntil(this.destroyed$)).subscribe((videoLoadedEvent) => {
-        if (!videoLoadedEvent || videoLoadedEvent?.video?.protocol === 'audio') {
-          this.isVideoLoaded.set(false);
-          return;
+      const o$ = new Observable<void>((observer) => {
+        if (omakasePlayer.player.mainMedia) {
+          observer.next();
+          observer.complete();
+        } else {
+          omakasePlayer.player.onEvent$
+            .pipe(
+              filter((event) => event.type === PlayerEventType.PLAYER_MAIN_MEDIA_LOADED),
+              take(1)
+            )
+            .subscribe(() => {
+              observer.next();
+              observer.complete();
+            });
         }
+      });
+      o$.subscribe(() => {
         this.isVideoLoaded.set(true);
       });
     });
@@ -112,7 +150,7 @@ export class SimpleLayoutComponent implements OnDestroy {
 
   public changeSelectedTheme(theme: string) {
     this.simpleLayoutConfigProviderService.setTheme(theme as SimpleLayoutTheme);
-    const currentTime = this.playerService.omakasePlayer!.video.getCurrentTime();
+    const currentTime = this.playerService.omakasePlayer!.player.getCurrentTime();
 
     this.playerService.onCreated$
       .pipe(
@@ -120,64 +158,59 @@ export class SimpleLayoutComponent implements OnDestroy {
         filter((p) => !!p),
         take(1)
       )
-      .subscribe((player) => {
-        player.video.onVideoLoaded$
-          .pipe(
-            filter((p) => !!p),
-            take(1)
-          )
-          .subscribe(() => {
-            player.video.seekToTime(currentTime);
-          });
+      .subscribe((omakasePlayer) => {
+        const o$ = new Observable<void>((observer) => {
+          if (omakasePlayer.player.mainMedia) {
+            observer.next();
+            observer.complete();
+          } else {
+            omakasePlayer.player.onEvent$
+              .pipe(
+                filter((event) => event.type === PlayerEventType.PLAYER_MAIN_MEDIA_LOADED),
+                take(1)
+              )
+              .subscribe(() => {
+                observer.next();
+                observer.complete();
+              });
+          }
+        });
+        o$.subscribe(() => {
+          omakasePlayer.player.seekTo(currentTime);
+        });
       });
     this.sessionService.changeLayoutAndReloadMedia('simple');
   }
 
-  private createMarkerTrack() {
-    const player = this.playerService.omakasePlayer;
-    const markerTrack = this.markerTrackService.activeMarkerTrack();
-    if (!player) {
+  private createMarkerTrack(markerTrack: SidecarMarkerTrack) {
+    const omakasePlayer = this.playerService.omakasePlayer;
+    if (!omakasePlayer) {
       console.warn("player is undefined, can't create marker list");
       return;
     }
 
-    player.chroming.progressMarkerTrack?.removeAllMarkers();
-    if (!markerTrack) {
-      return;
+    if (this.renderedMarkerTrack()) {
+      // omakasePlayer.chroming.deleteMarkerTrack(this.renderedMarkerTrack()!.id);
     }
 
-    const colorResolver = this.colorService.createColorResolver(crypto.randomUUID(), this.markerTrackService.HEX_COLORS);
-
-    player.chroming.progressMarkerTrack?.loadVtt(markerTrack.src, {
-      vttMarkerCreateFn(cue, index) {
-        const name = '';
-
-        const color = markerTrack.color !== 'multicolor' ? markerTrack.color : colorResolver.getColor(true);
-        if (cue.endTime - cue.startTime < 1) {
-          return new MomentMarker({
-            timeObservation: {
-              time: cue.startTime,
-            },
-            style: {
-              color: color,
-            },
-            editable: !markerTrack.readOnly,
-            text: name === '' ? `Marker ${index + 1}` : name,
-          });
-        } else {
-          return new PeriodMarker({
-            timeObservation: {
-              start: cue.startTime,
-              end: cue.endTime,
-            },
-            style: {
-              color: color,
-            },
-            editable: !markerTrack.readOnly,
-            text: name === '' ? `Marker ${index + 1}` : name,
-          });
+    omakasePlayer.chroming
+      .addMarkerBar(
+        TrackSource.of(markerTrack.id!),
+        ChromingTrackDestination.PROGRESS_BAR,
+        {trackType: TrackType.MARKER_TRACK},
+        {
+          visible: true,
         }
-      },
-    });
+      )
+      .subscribe((markerTrack) => {
+        this.renderedMarkerTrack.set(markerTrack);
+
+        // markerTrack.onEvent$.pipe(filter((event) => event.type === Chrom))
+        // markerTrack.onMarkerSelected$.subscribe((markerSelectedEvent) => {
+        //   if (markerSelectedEvent.marker) {
+        //     this.seekToMarker(markerSelectedEvent.marker);
+        //   }
+        // });
+      });
   }
 }

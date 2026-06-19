@@ -14,11 +14,13 @@
  * limitations under the License.
  */
 
-import {afterRender, AfterViewInit, Component, inject, input, OnDestroy} from '@angular/core';
-import {MarkerAwareApi, MarkerListApi, MarkerTrackApi} from '@byomakase/omakase-player';
-import {filter, skip, Subject, take, takeUntil} from 'rxjs';
+import {afterRender, AfterViewInit, Component, effect, inject, input, OnDestroy, output} from '@angular/core';
+import {filter, Observable, skip, Subject, take, takeUntil} from 'rxjs';
 import {toObservable} from '@angular/core/rxjs-interop';
 import {PlayerService} from '../../components/player/player.service';
+import {MarkerList, MarkerListEvent, MarkerState, MarkerTrack, PlayerEventType, TrackSource} from '@byomakase/omakase-player';
+import {MarkerTrackService, SidecarMarkerTrack} from '../../components/fly-outs/add-markers-fly-out/marker-track.service';
+import {ColorService} from '../services/color.service';
 
 @Component({
   selector: 'app-marker-list',
@@ -30,16 +32,16 @@ import {PlayerService} from '../../components/player/player.service';
     <div style="display: none;">
       <div id="marker-list-header">
         <div class="flex-row">
-          @if(playerService.thumbnailTrackUrl()) {
-          <div class="header-cell" style="min-width:100px"></div>
+          @if (playerService.thumbnailTrackUrl()) {
+            <div class="header-cell" style="min-width:100px"></div>
           }
           <div class="header-cell header-cell-name" style="flex-grow:1">NAME</div>
           <div class="header-cell " style="width:120px;min-width:15%">IN</div>
           <div class="header-cell " style="width:120px;min-width:15%">OUT</div>
           <div class="header-cell " style="width:120px;min-width:15%">DURATION</div>
 
-          @if(!readOnly()) {
-          <div class="header-cell" style="width:30px;padding-right:1em"></div>
+          @if (!readOnly()) {
+            <div class="header-cell" style="width:30px;padding-right:1em"></div>
           }
         </div>
       </div>
@@ -48,20 +50,20 @@ import {PlayerService} from '../../components/player/player.service';
           <div class="flex-cell" style="min-width: 5px;">
             <span slot="color" style="display:inline-block;height:53px;width:5px"></span>
           </div>
-          @if(playerService.thumbnailTrackUrl()) {
-          <div class="flex-cell" style="min-width: 100px">
-            <img slot="thumbnail" height="60" />
-          </div>
+          @if (playerService.thumbnailTrackUrl()) {
+            <div class="flex-cell" style="min-width: 100px">
+              <img slot="thumbnail" height="60" />
+            </div>
           }
           <div class="flex-cell flex-cell-name " style="flex-grow:1" slot="name"></div>
           <div class="flex-cell " style="width:120px;min-width:15%" slot="start"></div>
           <div class="flex-cell " style="width:120px;min-width:15%" slot="end"></div>
           <div class="flex-cell " style="width:120px;min-width:15%" slot="duration"></div>
 
-          @if(!readOnly()) {
-          <div class="flex-cell flex-cell-buttons" style="min-width:30px;text-align:center">
-            <span class="icon-delete" slot="remove"></span>
-          </div>
+          @if (!readOnly()) {
+            <div class="flex-cell flex-cell-buttons" style="min-width:30px;text-align:center">
+              <span class="icon-delete" slot="remove"></span>
+            </div>
           }
         </div>
       </div>
@@ -69,19 +71,26 @@ import {PlayerService} from '../../components/player/player.service';
   `,
 })
 export class MarkerListComponent implements OnDestroy, AfterViewInit {
-  source = input<MarkerAwareApi>();
+  source = input<SidecarMarkerTrack>();
   readOnly = input<boolean>(true);
   limitHeight = input<boolean>(false);
+  markerListEvent = output<MarkerListEvent>();
   public playerService = inject(PlayerService);
   private destroyed$ = new Subject<void>();
   // replay subject with replay value of 1, first value should be skipped
   // inspected in angular source code, possibly subjected to change
-  private source$ = toObservable<MarkerAwareApi | undefined>(this.source);
+  private source$ = toObservable<SidecarMarkerTrack | undefined>(this.source);
   private shouldRerenderMarkerList = false;
-  private renderedMarkerTrack: MarkerTrackApi | undefined = undefined;
-  private markerList: MarkerListApi | undefined = undefined;
+  private markerList: MarkerList | undefined = undefined;
+  private colorService = inject(ColorService);
+  private markerTrackService = inject(MarkerTrackService);
 
   constructor() {
+    effect(() => {
+      if (this.playerService.thumbnailTrack() && this.markerList) {
+        this.markerList.thumbnailTrack = this.playerService.thumbnailTrack();
+      }
+    });
     afterRender(() => {
       if (this.shouldRerenderMarkerList) {
         this.createMarkerList();
@@ -90,7 +99,7 @@ export class MarkerListComponent implements OnDestroy, AfterViewInit {
     });
   }
   ngOnDestroy(): void {
-    this.renderedMarkerTrack?.destroy();
+    this.markerList?.destroy();
     this.destroyed$.next();
     this.destroyed$.complete();
   }
@@ -104,51 +113,64 @@ export class MarkerListComponent implements OnDestroy, AfterViewInit {
           takeUntil(this.destroyed$),
           takeUntil(this.source$.pipe(skip(1)))
         )
-        .subscribe((player) => {
-          player.video.onVideoLoaded$
-            .pipe(
-              filter((p) => !!p),
-              takeUntil(this.destroyed$),
-              takeUntil(this.source$.pipe(skip(1)))
-            )
-            .subscribe(() => {
-              this.shouldRerenderMarkerList = true;
-            });
+        .subscribe((omakasePlayer) => {
+          const o$ = new Observable<void>((observer) => {
+            if (omakasePlayer.player.mainMedia) {
+              observer.next();
+              observer.complete();
+            } else {
+              omakasePlayer.player.onEvent$
+                .pipe(
+                  filter((event) => event.type === PlayerEventType.PLAYER_MAIN_MEDIA_LOADED),
+                  take(1)
+                )
+                .subscribe(() => {
+                  observer.next();
+                  observer.complete();
+                });
+            }
+          });
+
+          o$.subscribe(() => {
+            this.shouldRerenderMarkerList = true;
+          });
         });
     });
   }
 
   private createMarkerList() {
     const player = this.playerService.omakasePlayer;
+    const source = this.source();
     if (!player) {
       console.warn("player is undefined, can't create marker list");
       return;
     }
 
-    if (!this.source()) {
+    if (!source || !source.id) {
       return;
     }
 
+    const markerTrack = player.track.get(source.id)! as MarkerTrack;
+
     this.markerList?.destroy();
 
-    player
-      .createMarkerList({
+    this.markerList = new MarkerList(
+      {
         markerListHTMLElementId: 'marker-list-component',
         templateHTMLElementId: 'marker-list-row',
         headerHTMLElementId: 'marker-list-header',
         styleUrl: this.resolveCssUrl(),
-        source: this.source(),
-        nameEditable: !this.readOnly(),
+        markerTrack: [{source: TrackSource.of(markerTrack.id)}],
+        thumbnailTrack: this.playerService.thumbnailTrack() ? {source: TrackSource.of(this.playerService.thumbnailTrack()!.id)} : undefined,
         timeEditable: !this.readOnly(),
-        thumbnailVttUrl: this.playerService.thumbnailTrackUrl(),
-      })
-      .subscribe((markerList) => {
-        this.markerList = markerList;
+        labelEditable: !this.readOnly(),
+      },
+      player
+    );
 
-        markerList.onMarkerClick$.subscribe((markerListClickEvent) => {
-          markerList.toggleMarker(markerListClickEvent.marker.id);
-        });
-      });
+    this.markerList.onEvent$.pipe(takeUntil(this.destroyed$)).subscribe((event) => {
+      this.markerListEvent.emit(event);
+    });
   }
 
   private resolveCssUrl(): string {

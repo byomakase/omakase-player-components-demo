@@ -14,15 +14,16 @@
  * limitations under the License.
  */
 
-import {ClickEvent, ConfigWithOptionalStyle, ImageButton, LabelLane, LabelLaneConfig, Timeline, TimelineLaneApi, VideoControllerApi} from '@byomakase/omakase-player';
 import {Observable, Subject, takeUntil} from 'rxjs';
 import {Constants} from '../../../constants/constants';
+import {ConfigAndStyle, ImageButton, LabelLane, LabelLaneConfig, LabelLaneStyle, OmpProvider, PlayerApi, TimelineImpl, TimelineLaneApi, TimelineNodeEventType} from '@byomakase/omakase-player';
 
 export type GroupingLaneVisibility = 'minimized' | 'maximized';
 
 export interface BaseGroupingLaneConfig extends LabelLaneConfig {}
+export interface BaseGroupingLaneStyle extends LabelLaneStyle {}
 
-export abstract class BaseGroupingLane<C extends BaseGroupingLaneConfig> extends LabelLane {
+export abstract class BaseGroupingLane<C extends BaseGroupingLaneConfig, S extends BaseGroupingLaneStyle> extends LabelLane {
   private _groupMinimizeMaximizeButton: ImageButton;
 
   private _childLanes: TimelineLaneApi[] = [];
@@ -32,30 +33,35 @@ export abstract class BaseGroupingLane<C extends BaseGroupingLaneConfig> extends
   private _onVisibilityChange$: Subject<GroupingLaneVisibility> = new Subject<GroupingLaneVisibility>();
 
   private _enabled: boolean = true;
+  private _isPrepared: boolean = false;
 
-  protected constructor(config: ConfigWithOptionalStyle<C>) {
-    super(config);
+  protected constructor(configAndStyle: ConfigAndStyle<C, S> & Pick<LabelLaneConfig, 'text'>) {
+    super(configAndStyle);
 
     this._groupMinimizeMaximizeButton = new ImageButton({
       src: Constants.IMAGES.timeline.chevronDown,
       listening: true,
     });
-
-    this.addTimelineNode({
-      timelineNode: this._groupMinimizeMaximizeButton,
-      width: 22,
-      height: 22,
-      justify: 'start',
-      margin: [0, 5, 0, 0],
-    });
   }
 
-  override prepareForTimeline(timeline: Timeline, videoController: VideoControllerApi) {
-    super.prepareForTimeline(timeline, videoController);
+  prepareForTimeline(timeline: TimelineImpl, player: PlayerApi, ompProvider: OmpProvider): void {
+    // LabelLane.prepareForTimeline is @internal in the public d.ts but exists at runtime.
+    // @ts-expect-error invoking an @internal method on the parent class
+    super.prepareForTimeline(timeline, player, ompProvider);
 
-    this._groupMinimizeMaximizeButton.onClick$.pipe(takeUntil(this._destroyed$)).subscribe({
-      next: (event: ClickEvent) => {
-        this.toggleGroupVisibility();
+    setTimeout(() => {
+      this.addTimelineNode({
+        timelineNode: this._groupMinimizeMaximizeButton,
+        width: 22,
+        height: 22,
+        justify: 'start',
+        margin: [0, 5, 0, 0],
+      });
+    }, 100);
+
+    this._groupMinimizeMaximizeButton.onEvent$.pipe(takeUntil(this._destroyBreaker.observer)).subscribe({
+      next: (event) => {
+        if (event.type === TimelineNodeEventType.TIMELINE_NODE_CLICK) this.toggleGroupVisibility();
       },
     });
   }
@@ -90,15 +96,15 @@ export abstract class BaseGroupingLane<C extends BaseGroupingLaneConfig> extends
 
   toggleHidden(visibility: GroupingLaneVisibility) {
     if (this.isMinimized()) {
-      this.style.textFontSize = this._config.style.textFontSize;
-      this.onStyleChange();
+      this.style.textFontSize = this._style?.textFontSize ?? Constants.DEFAULT_LABEL_TEXT_FONT_SIZE;
+      //   this.onStyleChange();
       this.maximize();
       visibility === 'minimized' ? this.groupMaximize() : this.groupMinimize();
       this._enabled = true;
     } else {
       this.minimize();
       this.style.textFontSize = 0;
-      this.onStyleChange();
+      //   this.onStyleChange();
       this.groupMinimize();
       this._enabled = false;
     }
@@ -121,7 +127,7 @@ export abstract class BaseGroupingLane<C extends BaseGroupingLaneConfig> extends
     return this._childLanes;
   }
 
-  override get description(): string {
+  get description(): string {
     return this._description ?? '';
   }
 

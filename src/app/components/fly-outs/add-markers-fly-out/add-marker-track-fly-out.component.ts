@@ -21,7 +21,7 @@ import {IconDirective} from '../../../common/icon/icon.directive';
 import {allowedNameValidator} from '../../../common/validators/allowed-name-validator';
 import {NgbTooltip} from '@ng-bootstrap/ng-bootstrap';
 import {ColorPickerComponent} from '../../../common/controls/color-picker/color-picker.component';
-import {MarkerTrack, MarkerTrackService} from './marker-track.service';
+import {SidecarMarkerTrack, MarkerTrackService} from './marker-track.service';
 import {MarkerTrackDisplay} from './marker-track-dispaly.component';
 import {CheckboxComponent} from '../../../common/controls/checkbox/checkbox.component';
 import {ColorSquareComponent} from '../../../common/controls/color-picker/multicolor-square.component';
@@ -39,7 +39,7 @@ const COLOR_RESOLVER_ID = 'marker-fly-out';
     </div>
     <div class="body add-marker-track-body">
       @for (markerTrack of markerTrackService.markerTracks(); track markerTrack) {
-      <app-marker-track-display [markerTrack]="markerTrack" (deleted)="deleteMarkerTrack(markerTrack)" />
+        <app-marker-track-display [markerTrack]="markerTrack" (deleted)="deleteMarkerTrack(markerTrack)" />
       }
 
       <div class="add-marker-track-dialogue">
@@ -56,17 +56,16 @@ const COLOR_RESOLVER_ID = 'marker-fly-out';
           </div>
           <div class="input-wrapper color-picker-wrapper input-wrapper-no-margin">
             @if (form.controls.color.value !== 'multicolor') {
-            <div class="color-display" [style]="{backgroundColor: form.controls.color.value}" (click)="isColorPickerOpen.set(true)"></div>
+              <div class="color-display" [style]="{backgroundColor: form.controls.color.value}" (click)="isColorPickerOpen.set(true)"></div>
             } @else {
-            <app-multicolor-square (click)="isColorPickerOpen.set(true)" [colors]="markerTrackService.MULTICOLOR_COLORS"> </app-multicolor-square>
-
+              <app-multicolor-square (click)="isColorPickerOpen.set(true)" [colors]="markerTrackService.MULTICOLOR_COLORS"> </app-multicolor-square>
             }
             <label class="input-label">Color</label>
           </div>
           @if (isColorPickerOpen()) {
-          <div class="color-picker-wrapper">
-            <app-color-picker #colorPicker [colors]="markerTrackService.COLORS" [activeColor]="form.controls.color.value!" (clickOutside)="closeColorPicker()" (selectedColor)="setColor($event)" />
-          </div>
+            <div class="color-picker-wrapper">
+              <app-color-picker #colorPicker [colors]="markerTrackService.COLORS" [activeColor]="form.controls.color.value!" (clickOutside)="closeColorPicker()" (selectedColor)="setColor($event)" />
+            </div>
           }
           <div class="button-wrapper">
             <button [disabled]="isAddDisabled()" (click)="addMarkerTrack()">ADD</button>
@@ -120,7 +119,6 @@ export class AddMarkerTrackFlyOut {
   addMarkerTrack() {
     const label = this.form.value.label === null || this.form.value.label === '' ? undefined : this.form.value.label;
     this.markerTrackService.addMarkerTrack({
-      id: crypto.randomUUID(),
       src: this.form.value.url!,
       label: label,
       color: this.form.value.color!,
@@ -132,7 +130,7 @@ export class AddMarkerTrackFlyOut {
     this.form.controls.readOnly.setValue(true);
   }
 
-  deleteMarkerTrack(markerTrack: MarkerTrack) {
+  deleteMarkerTrack(markerTrack: SidecarMarkerTrack) {
     this.markerTrackService.removeMarkerTrack(markerTrack);
   }
 
