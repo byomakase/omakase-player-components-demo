@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-import {Component, HostBinding, HostListener, inject, OnInit} from '@angular/core';
+import {Component, HostBinding, HostListener, inject, OnInit, ChangeDetectionStrategy} from '@angular/core';
 import {PlayerService} from './player.service';
 import {WindowService} from '../../common/browser/window.service';
 import {LayoutService} from '../layout-menu/layout.service';
@@ -24,6 +24,7 @@ import {OmakasePlayerUtil} from '../../common/util/omakase-player-util';
   selector: 'app-player',
   imports: [],
   host: {'id': 'omakase-player'},
+  changeDetection: ChangeDetectionStrategy.Eager,
   template: ` <ng-content></ng-content> `,
 })
 export class PlayerComponent implements OnInit {

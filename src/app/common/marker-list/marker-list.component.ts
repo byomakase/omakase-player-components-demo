@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-import {afterRender, AfterViewInit, Component, effect, inject, input, OnDestroy, output} from '@angular/core';
+import {afterEveryRender, AfterViewInit, Component, effect, inject, input, OnDestroy, output, ChangeDetectionStrategy} from '@angular/core';
 import {filter, Observable, skip, Subject, take, takeUntil} from 'rxjs';
 import {toObservable} from '@angular/core/rxjs-interop';
 import {PlayerService} from '../../components/player/player.service';
@@ -26,6 +26,7 @@ import {ColorService} from '../services/color.service';
   selector: 'app-marker-list',
   imports: [],
   host: {'class': 'marker-list'},
+  changeDetection: ChangeDetectionStrategy.Eager,
   template: `
     <div class="marker-list" id="marker-list-component"></div>
 
@@ -91,7 +92,7 @@ export class MarkerListComponent implements OnDestroy, AfterViewInit {
         this.markerList.thumbnailTrack = this.playerService.thumbnailTrack();
       }
     });
-    afterRender(() => {
+    afterEveryRender(() => {
       if (this.shouldRerenderMarkerList) {
         this.createMarkerList();
         this.shouldRerenderMarkerList = false;

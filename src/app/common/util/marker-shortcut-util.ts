@@ -15,7 +15,7 @@
  */
 
 import {HelpMenuGroup, HelpMenuItem, Marker, MarkerTrack, OmakasePlayer, PlayerEventType, TimedItemTemporalType, TimedItemTemporalUtil} from '@byomakase/omakase-player';
-import {filter, Subject, takeUntil} from 'rxjs';
+import {filter, skip, skipUntil, Subject, switchMap, takeUntil} from 'rxjs';
 
 export class MarkerShortcutUtil {
   public static getKeyboardShortcutsHelpMenuGroup(platform: 'unknown' | 'macos' | 'windows' | 'linux'): HelpMenuGroup {
@@ -149,12 +149,14 @@ export class MarkerShortcutUtil {
       if (focused && focused.temporal.type === TimedItemTemporalType.SPAN) {
         const start = TimedItemTemporalUtil.extractStartTime(focused.temporal);
         const end = TimedItemTemporalUtil.extractEndTime(focused.temporal);
+        const initialSeekEnded$ = new Subject<void>();
         if (start != null && end != null) {
           const loopBreaker$ = new Subject<void>();
 
           omakasePlayer.player.onEvent$
             .pipe(
               filter((e) => e.type === PlayerEventType.PLAYER_SEEKING),
+              skipUntil(initialSeekEnded$),
               takeUntil(loopBreaker$)
             )
             .subscribe(() => {
@@ -168,14 +170,32 @@ export class MarkerShortcutUtil {
               takeUntil(loopBreaker$)
             )
             .subscribe((e) => {
-              if (e.data.currentTime >= end) {
+              if (e.data.currentTime > end - (omakasePlayer.player.mainMedia?.frameRateModel?.frameDuration ?? 0.01)) {
                 loopBreaker$.next();
                 loopBreaker$.complete();
-                omakasePlayer.player.seekTo(start).subscribe(() => omakasePlayer.player.pause().subscribe());
+                omakasePlayer.player
+                  .pause()
+                  .pipe(
+                    switchMap(() => {
+                      return omakasePlayer.player.seekTo(start);
+                    })
+                  )
+                  .subscribe(() => omakasePlayer.player.pause());
               }
             });
 
-          omakasePlayer.player.seekTo(start).subscribe(() => omakasePlayer.player.play().subscribe());
+          omakasePlayer.player
+            .pause()
+            .pipe(
+              switchMap(() => {
+                return omakasePlayer.player.seekTo(start);
+              })
+            )
+            .subscribe(() => {
+              initialSeekEnded$.next();
+              initialSeekEnded$.complete();
+              omakasePlayer.player.play();
+            });
         }
       }
       return true;

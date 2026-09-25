@@ -51,15 +51,13 @@ export class TextTrackGroupingLane extends BaseGroupingLane<TextTrackGroupingLan
   override prepareForTimeline(timeline: TimelineImpl, player: PlayerApi, ompProvider: OmpProvider): void {
     super.prepareForTimeline(timeline, player, ompProvider);
 
-    setTimeout(() => {
-      this.addTimelineNode({
-        timelineNode: this._subtitlesControlButton.timelineNode,
-        width: this._subtitlesControlButton.dimension.width,
-        height: this._subtitlesControlButton.dimension.height,
-        justify: 'start',
-        margin: [0, 0, 0, 0],
-      });
-    }, 100);
+    this.addTimelineNode({
+      timelineNode: this._subtitlesControlButton.timelineNode,
+      width: this._subtitlesControlButton.dimension.width,
+      height: this._subtitlesControlButton.dimension.height,
+      justify: 'start',
+      margin: [0, 0, 0, 0],
+    });
 
     if (!this.isDisabled) {
       this._textApi.onEvent$

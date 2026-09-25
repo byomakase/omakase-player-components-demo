@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-import {Component, CUSTOM_ELEMENTS_SCHEMA, ElementRef, ViewChild, AfterViewInit, OnChanges, OnDestroy, SimpleChanges, input, output} from '@angular/core';
+import {Component, CUSTOM_ELEMENTS_SCHEMA, ElementRef, ViewChild, AfterViewInit, OnChanges, OnDestroy, SimpleChanges, input, output, ChangeDetectionStrategy} from '@angular/core';
 
 /**
  * Simple wrapper around knob Web component. It should always be used in place of raw web component
@@ -39,6 +39,7 @@ import {Component, CUSTOM_ELEMENTS_SCHEMA, ElementRef, ViewChild, AfterViewInit,
     </knob-control>
   `,
   standalone: true,
+  changeDetection: ChangeDetectionStrategy.Eager,
   schemas: [CUSTOM_ELEMENTS_SCHEMA],
 })
 export class KnobWrapperComponent implements AfterViewInit, OnChanges, OnDestroy {

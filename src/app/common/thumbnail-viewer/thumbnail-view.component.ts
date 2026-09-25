@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-import {afterNextRender, Component, computed, ElementRef, inject, input, output} from '@angular/core';
+import {afterNextRender, Component, computed, ElementRef, inject, input, output, ChangeDetectionStrategy} from '@angular/core';
 import {MediaTemporalFormat, MomentTemporal, Thumbnail, TimedItemTemporalType} from '@byomakase/omakase-player';
 import {IconDirective} from '../icon/icon.directive';
 import {PlayerService} from '../../components/player/player.service';
@@ -23,6 +23,7 @@ import {PlayerService} from '../../components/player/player.service';
   selector: 'app-thumbnail-view',
   standalone: true,
   imports: [IconDirective],
+  changeDetection: ChangeDetectionStrategy.Eager,
   template: `
     <div class="thumbnail-view">
       <img alt="keyframe" [src]="thumbnail().state.url" />

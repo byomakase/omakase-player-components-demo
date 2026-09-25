@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-import {Component, Type, inject, AfterViewChecked, input} from '@angular/core';
+import {Component, Type, inject, AfterViewChecked, input, ChangeDetectionStrategy} from '@angular/core';
 import {NgComponentOutlet} from '@angular/common';
 import {LayoutService} from '../../layout-menu/layout.service';
 
@@ -26,6 +26,7 @@ import {LayoutService} from '../../layout-menu/layout.service';
   selector: 'app-layout-host',
   standalone: true,
   imports: [NgComponentOutlet],
+  changeDetection: ChangeDetectionStrategy.Eager,
   template: `<ng-container *ngComponentOutlet="layout()" />`,
 })
 export class LayoutHost implements AfterViewChecked {

@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-import {Component, effect, HostListener, inject, signal} from '@angular/core';
+import {Component, effect, HostListener, inject, signal, ChangeDetectionStrategy} from '@angular/core';
 import {FormControl, FormGroup, ReactiveFormsModule} from '@angular/forms';
 import {FlyOutService} from '../fly-out.service';
 import {IconDirective} from '../../../common/icon/icon.directive';
@@ -63,6 +63,7 @@ const urlRegex = /[-a-zA-Z0-9@:%._\+~#=]{1,256}\.[a-zA-Z0-9()]{1,6}\b([-a-zA-Z0-
       </form>
     </div>
   `,
+  changeDetection: ChangeDetectionStrategy.Eager,
   imports: [ReactiveFormsModule, IconDirective, SidecarDisplay, NgbTooltip],
 })
 export class AddSidecarAudioFlyOut {

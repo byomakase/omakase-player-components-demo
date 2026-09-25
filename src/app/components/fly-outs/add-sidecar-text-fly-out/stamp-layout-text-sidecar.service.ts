@@ -3,9 +3,9 @@ import {ToastService} from '../../../common/toast/toast.service';
 import {StampLayoutService} from '../../layouts/stamp-layout/stamp-layout.service';
 import {LoadedSidecarText, SidecarText} from './text-sidecar.service';
 import {AbstractSidecarTextService} from './text-sidecar.service.abstract';
-import {Observable, Subject, takeUntil} from 'rxjs';
+import {Observable, Subject, switchMap, takeUntil} from 'rxjs';
 import {StringUtil} from '../../../common/util/string-util';
-import {ChromingTheme, Track, TrackType} from '@byomakase/omakase-player';
+import {ChromingTheme, TimeReference, Track, TrackType} from '@byomakase/omakase-player';
 
 @Injectable({
   providedIn: 'root',
@@ -52,13 +52,19 @@ export class StampLayoutSidecarTextService extends AbstractSidecarTextService {
       .subscribe((playerId) => {
         const player = this.stampLayoutService.getPlayer(playerId)!;
 
-        player.player
-          .loadSidecarTrack(sidecarText.src, {
-            trackType: TrackType.TEXT_TRACK,
-            handlerType: sidecarText.engine,
-            args: {label: sidecarText.label !== '' ? sidecarText.label : undefined},
-          })
-          .pipe(takeUntil(this.stampLayoutService.onReset$))
+        this.prepareTextTrackSource(sidecarText, player)
+          .pipe(
+            switchMap((source) =>
+              player.player.loadSidecarTrack(source, {
+                trackType: TrackType.TEXT_TRACK,
+                handlerType: sidecarText.engine,
+                args: {label: sidecarText.label !== '' ? sidecarText.label : undefined},
+                // Slew (and any FFOM offset) is already baked into the source, so load self-referenced.
+                timeReference: TimeReference.SELF,
+              })
+            ),
+            takeUntil(this.stampLayoutService.onReset$)
+          )
           .subscribe({
             next: (textTrack: Track) => {
               player.player.text.switchTrack(textTrack.id);
@@ -103,14 +109,6 @@ export class StampLayoutSidecarTextService extends AbstractSidecarTextService {
     }
 
     this._pendingSidecarTexts.update((prev) => prev.filter((sidecar) => sidecar !== sidecarText));
-  }
-
-  public override reloadSidecarTexts(_sidecarTexts: SidecarText[]): void {
-    // todo
-  }
-
-  public override removeAllSidecarTexts(): void {
-    this.reset();
   }
 
   public override reset(): void {

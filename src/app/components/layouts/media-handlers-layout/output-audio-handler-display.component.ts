@@ -1,4 +1,4 @@
-import {Component, input, signal, OnInit, OnDestroy} from '@angular/core';
+import {Component, input, signal, OnInit, OnDestroy, ChangeDetectionStrategy} from '@angular/core';
 import {FormControl, ReactiveFormsModule} from '@angular/forms';
 import {AudioHandlerApi} from '@byomakase/omakase-player';
 import {Subject, takeUntil} from 'rxjs';
@@ -7,6 +7,7 @@ import {Subject, takeUntil} from 'rxjs';
   selector: 'app-output-audio-handler-display',
   standalone: true,
   imports: [ReactiveFormsModule],
+  changeDetection: ChangeDetectionStrategy.Eager,
   template: `
     <div class="volume-controls-container">
       <button (click)="toggleMute()">

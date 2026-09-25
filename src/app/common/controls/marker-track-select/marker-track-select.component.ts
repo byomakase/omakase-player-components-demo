@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-import {AfterViewInit, Component, effect, inject, OnDestroy} from '@angular/core';
+import {AfterViewInit, Component, effect, inject, OnDestroy, ChangeDetectionStrategy} from '@angular/core';
 import {FormControl, ReactiveFormsModule} from '@angular/forms';
 import {Subject} from 'rxjs';
 import {StringUtil} from '../../../common/util/string-util';
@@ -23,6 +23,7 @@ import {SidecarMarkerTrack, MarkerTrackService} from '../../../components/fly-ou
 @Component({
   selector: 'app-marker-track-select',
   imports: [ReactiveFormsModule],
+  changeDetection: ChangeDetectionStrategy.Eager,
   template: `
     <select [formControl]="selectControl">
       @for (track of markerTrackService.markerTracks(); track track) {

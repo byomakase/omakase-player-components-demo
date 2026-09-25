@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-import {AfterViewInit, Component, effect, ElementRef, inject, input, output, signal, ViewChild} from '@angular/core';
+import {AfterViewInit, Component, effect, ElementRef, inject, input, output, signal, ViewChild, ChangeDetectionStrategy} from '@angular/core';
 import {
   FileFormatType,
   PlayerTextHandlerType,
@@ -22,6 +22,7 @@ import {
   RelationType,
   TextCue,
   TextTrack,
+  TimeReference,
   TimedItemsTrackEventEmitter,
   TimedItemsTrackItemEventType,
   TimedItemTemporalType,
@@ -37,6 +38,7 @@ import {VttUtil} from '../util/vtt-util';
   selector: 'app-text-track-editor',
   standalone: true,
   imports: [TextCueView],
+  changeDetection: ChangeDetectionStrategy.Eager,
   template: `
     <div #editor class="text-track-editor">
       @for (timedItem of textTrack().timedItemsSorted; track timedItem.id) {
@@ -140,10 +142,14 @@ export class TextTrackEditor implements AfterViewInit {
         trackType: TrackType.TEXT_TRACK,
         fileFormatType: FileFormatType.VTT,
         handlerType: handlerType ?? PlayerTextHandlerType.MEDIA_CAPTIONS,
+        // Cues are taken from the already-slewed source track, so load self-referenced to avoid
+        // re-applying any slew (e.g. the main media's FFOM offset) on top of the derived track.
+        timeReference: TimeReference.SELF,
         args: {
           label: this.textTrack().label,
           relations: [Relation.of(RelationType.DERIVED_FROM, sourceTrackId, this.textTrack().mediaType)],
         },
+        adaptiveRendering: true,
       })
       .pipe(
         switchMap((editedTextTrack) => {

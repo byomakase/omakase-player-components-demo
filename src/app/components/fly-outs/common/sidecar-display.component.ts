@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-import {Component, input, output} from '@angular/core';
+import {Component, input, output, ChangeDetectionStrategy} from '@angular/core';
 import {IconDirective} from '../../../common/icon/icon.directive';
 import {StringUtil} from '../../../common/util/string-util';
 
@@ -37,6 +37,7 @@ import {StringUtil} from '../../../common/util/string-util';
     </div>
   `,
   imports: [IconDirective],
+  changeDetection: ChangeDetectionStrategy.Eager,
   host: {
     'class': 'sidecar-display',
   },

@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-import {Component, inject, input} from '@angular/core';
+import {Component, inject, input, ChangeDetectionStrategy} from '@angular/core';
 import {Thumbnail, ThumbnailTrack, TimedItemTemporalType} from '@byomakase/omakase-player';
 import {ThumbnailView} from './thumbnail-view.component';
 import {PlayerService} from '../../components/player/player.service';
@@ -23,6 +23,7 @@ import {PlayerService} from '../../components/player/player.service';
   selector: 'app-thumbnail-viewer',
   standalone: true,
   imports: [ThumbnailView],
+  changeDetection: ChangeDetectionStrategy.Eager,
   template: `
     <div class="thumbnail-viewer">
       @for (thumbnail of thumbnailTrack().timedItems; track thumbnail.id) {

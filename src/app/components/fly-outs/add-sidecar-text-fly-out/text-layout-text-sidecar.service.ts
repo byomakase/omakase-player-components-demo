@@ -17,11 +17,10 @@
 import {computed, inject, Injectable, signal} from '@angular/core';
 import {PlayerService} from '../../player/player.service';
 import {ToastService} from '../../../common/toast/toast.service';
-import {StringUtil} from '../../../common/util/string-util';
 import {forkJoin, of, Subject, switchMap} from 'rxjs';
 import {AbstractSidecarTextService} from './text-sidecar.service.abstract';
 import {LoadedSidecarText, SidecarText} from './text-sidecar.service';
-import {FallbackFormat, FileFormat, PlayerTextHandlerType, RelationType, TextTrackFile, TrackType, UrlSource} from '@byomakase/omakase-player';
+import {FileFormat, RelationType, TextTrackFile, TimeReference, TrackType, UrlSource} from '@byomakase/omakase-player';
 import {ProbingUtil} from '../../../common/util/probing-util';
 
 @Injectable({
@@ -70,24 +69,26 @@ export class TextLayoutSidecarTextService extends AbstractSidecarTextService {
   public addSidecarText(sidecarText: SidecarText, showSuccessToast: boolean = true) {
     const result$ = new Subject<boolean>();
     this._pendingSidecarTexts.update((prev) => [...prev, sidecarText]);
-    let label;
-    if (sidecarText.label === '') {
-      label = StringUtil.leafUrlToken(sidecarText.src);
-    } else {
-      label = sidecarText.label!;
-    }
 
     ProbingUtil.resolveFileFormat(this.playerService.omakasePlayer!, sidecarText.src)
       .pipe(
         switchMap((fileFormat) => {
           if (fileFormat === FileFormat.VTT) {
-            return this.playerService.omakasePlayer!.player.loadSidecarTrack(sidecarText.src, {
-              trackType: TrackType.TEXT_TRACK,
-              handlerType: sidecarText.engine,
-              args: {
-                label: sidecarText.label !== '' ? sidecarText.label : undefined,
-              },
-            });
+            const omakasePlayer = this.playerService.omakasePlayer!;
+            return this.prepareTextTrackSource(sidecarText, omakasePlayer).pipe(
+              switchMap((source) =>
+                omakasePlayer.player.loadSidecarTrack(source, {
+                  trackType: TrackType.TEXT_TRACK,
+                  handlerType: sidecarText.engine,
+                  args: {
+                    label: sidecarText.label !== '' ? sidecarText.label : undefined,
+                  },
+                  // Slew (and any FFOM offset) is already baked into the source, so load self-referenced.
+                  timeReference: TimeReference.SELF,
+                  adaptiveRendering: true,
+                })
+              )
+            );
           } else {
             this.createFormatNotSupportedToast();
             const track = new TextTrackFile({
@@ -139,42 +140,6 @@ export class TextLayoutSidecarTextService extends AbstractSidecarTextService {
   }
 
   /**
-   * Reloads all sidecar texts. Since this method is usually called after Omakase player is recrated the argument
-   * should capture the player state before recreation
-   *
-   * @param {SidecarText[]} sidecarTexts
-   */
-  public reloadSidecarTexts(sidecarTexts: SidecarText[]) {
-    // sidecarTexts
-    //   .filter((sidecarText) => sidecarText.id)
-    //   .forEach((sidecarText) => {
-    //     this.playerService
-    //       .omakasePlayer!.subtitles.createVttTrack({
-    //         src: sidecarText.src,
-    //         id: sidecarText.id ?? crypto.randomUUID(),
-    //         default: false,
-    //         label: sidecarText.label ?? '',
-    //         language: '',
-    //       })
-    //       .subscribe({
-    //         next: (track) => {
-    //           if (track) {
-    //             this.playerService.omakasePlayer!.subtitles.showTrack(track.id);
-    //             sidecarText.id = track.id;
-    //           } else {
-    //             this.removeSidecarText(sidecarText);
-    //             this.createErrorToast();
-    //           }
-    //         },
-    //         error: () => {
-    //           this.createErrorToast();
-    //           this.removeSidecarText(sidecarText);
-    //         },
-    //       });
-    //   });
-  }
-
-  /**
    * Removes the sidecar text from OPCD session
    *
    * @param {SidecarText} sidecarText
@@ -217,13 +182,6 @@ export class TextLayoutSidecarTextService extends AbstractSidecarTextService {
     this._pendingSidecarTexts.update((prev) => prev.filter((sidecar) => sidecar !== sidecarText));
   }
 
-  /**
-   * Remove all sidecar texts from OPCD session
-   */
-  public removeAllSidecarTexts() {
-    // this.loadedSidecarTexts().forEach((track) => this.playerService.omakasePlayer!.subtitles.removeTrack(track.id!));
-    // this.loadedSidecarTexts.set([]);
-  }
   public override reset(): void {
     this.loadedSidecarTexts.set([]);
     this._pendingSidecarTexts.set([]);

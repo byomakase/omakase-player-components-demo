@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-import {Component, computed, HostListener, inject, signal} from '@angular/core';
+import {Component, computed, HostListener, inject, signal, ChangeDetectionStrategy} from '@angular/core';
 import {FormControl, FormGroup, ReactiveFormsModule} from '@angular/forms';
 import {FlyOutService} from '../fly-out.service';
 import {IconDirective} from '../../../common/icon/icon.directive';
@@ -24,6 +24,7 @@ import {NgbTooltip} from '@ng-bootstrap/ng-bootstrap';
 import {SidecarDisplay} from '../common/sidecar-display.component';
 import {FileFormat, PlayerTextHandlerType} from '@byomakase/omakase-player';
 import {PlayerService} from '../../player/player.service';
+import {numberValidator} from '../../../common/validators/number-validator';
 
 const urlRegex = /[-a-zA-Z0-9@:%._\+~#=]{1,256}\.[a-zA-Z0-9()]{1,6}\b([-a-zA-Z0-9()@:%_\+.~#?&//=]*)/;
 
@@ -51,9 +52,13 @@ const urlRegex = /[-a-zA-Z0-9@:%._\+~#=]{1,256}\.[a-zA-Z0-9()]{1,6}\b([-a-zA-Z0-
         <div class="add-sidecar-dialogue">
           <div class="input-tooltip">
             <input (blur)="onUrlInputUnfocus()" formControlName="url" type="text" placeholder="URL" />
-            <i appIcon="question" ngbTooltip="Specify the URL of a sidecar. The following formats are supported: VTT" placement="top"></i>
+            <i appIcon="question" ngbTooltip="Specify the URL of a sidecar. The following formats are supported: VTT, SRT, IMSC, SCC" placement="top"></i>
           </div>
           <input formControlName="label" type="text" placeholder="Label" />
+          <div class="input-tooltip">
+            <input formControlName="slew" type="text" placeholder="Slew" [class.invalid]="!isSlewValid()" />
+            <i appIcon="question" ngbTooltip="Specify cue translation in +/- seconds" placement="top"></i>
+          </div>
           <div class="input-wrapper">
             <select formControlName="engine">
               @for (engineOption of filteredEngineOptions; track engineOption.value) {
@@ -68,6 +73,7 @@ const urlRegex = /[-a-zA-Z0-9@:%._\+~#=]{1,256}\.[a-zA-Z0-9()]{1,6}\b([-a-zA-Z0-
       </form>
     </div>
   `,
+  changeDetection: ChangeDetectionStrategy.Eager,
   imports: [ReactiveFormsModule, IconDirective, NgbTooltip, SidecarDisplay],
 })
 export class AddSidecarTextFlyOut {
@@ -75,6 +81,7 @@ export class AddSidecarTextFlyOut {
     label: new FormControl(''),
     url: new FormControl('', [allowedNameValidator(urlRegex)]),
     engine: new FormControl<PlayerTextHandlerType>(PlayerTextHandlerType.MEDIA_CAPTIONS),
+    slew: new FormControl('', [numberValidator(undefined, undefined, true)]),
   });
 
   public engineOptions = [
@@ -96,17 +103,22 @@ export class AddSidecarTextFlyOut {
   private flyOutService = inject(FlyOutService);
   public sidecarTextService = inject(SidecarTextService);
   private playerService = inject(PlayerService);
+  private fileFormat = signal<FileFormat | undefined>(undefined);
 
   public isAddDisabled = computed(() => {
-    return !(this.isUrlProbed() && this.isUrlValid());
+    return !(this.isUrlProbed() && this.isUrlValid() && this.isSlewValid());
   });
 
   public isUrlValid = signal(false);
   public isUrlProbed = signal(false);
+  public isSlewValid = signal(true);
 
   constructor() {
     this.form.controls.url.valueChanges.subscribe(() => {
       this.isUrlValid.set(this.form.controls.url.errors == null);
+    });
+    this.form.controls.slew.valueChanges.subscribe(() => {
+      this.isSlewValid.set(this.form.controls.slew.errors == null);
     });
   }
 
@@ -119,10 +131,14 @@ export class AddSidecarTextFlyOut {
       src: this.form.value.url!,
       label: this.form.value.label ?? '',
       engine: this.form.value.engine ?? PlayerTextHandlerType.MEDIA_CAPTIONS,
+      slew: this.form.value.slew ? parseFloat(this.form.value.slew) : undefined,
+      probedFileFormat: this.fileFormat(),
     });
 
     this.form.reset();
     this.form.controls.engine.setValue(PlayerTextHandlerType.MEDIA_CAPTIONS);
+    this.form.controls.slew.setValue('');
+    this.filteredEngineOptions = this.engineOptions;
   }
 
   @HostListener('document:keydown.enter', ['$event'])
@@ -142,6 +158,7 @@ export class AddSidecarTextFlyOut {
     if (!this.isUrlValid()) {
       this.filteredEngineOptions = this.engineOptions;
       this.form.controls.engine.setValue(PlayerTextHandlerType.MEDIA_CAPTIONS);
+      this.fileFormat.set(undefined);
 
       return;
     }
@@ -165,6 +182,7 @@ export class AddSidecarTextFlyOut {
         this.filteredEngineOptions = this.engineOptions;
         this.form.controls.engine.setValue(PlayerTextHandlerType.MEDIA_CAPTIONS);
       }
+      this.fileFormat.set(mediaProbeResult?.fileFormat);
       this.isUrlProbed.set(true);
     });
   }

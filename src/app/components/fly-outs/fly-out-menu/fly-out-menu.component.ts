@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-import {Component, inject, OnDestroy, signal} from '@angular/core';
+import {Component, inject, OnDestroy, signal, ChangeDetectionStrategy} from '@angular/core';
 import {filter, Subject, takeUntil} from 'rxjs';
 import {IconDirective} from '../../../common/icon/icon.directive';
 import {FlyOutService} from '../fly-out.service';
@@ -23,6 +23,7 @@ import {PlayerEventType} from '@byomakase/omakase-player';
 @Component({
   selector: 'div[fly-out-menu]',
   imports: [IconDirective],
+  changeDetection: ChangeDetectionStrategy.Eager,
   template: `
     @if(flyOutService.flyoutsEnabled()) {
     <div (click)="openAddMainMedia()">

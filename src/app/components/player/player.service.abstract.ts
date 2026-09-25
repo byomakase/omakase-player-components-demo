@@ -1,5 +1,5 @@
 import {signal} from '@angular/core';
-import {OmakasePlayer, OmakasePlayerConfig, ThumbnailTrack} from '@byomakase/omakase-player';
+import {MainMediaType, OmakasePlayer, OmakasePlayerConfig, PlayerEvent, PlayerEventType, ThumbnailTrack} from '@byomakase/omakase-player';
 import {BehaviorSubject, Observable} from 'rxjs';
 
 export abstract class AbstractPlayerService {
@@ -13,5 +13,24 @@ export abstract class AbstractPlayerService {
 
   abstract get isReloading(): boolean;
   abstract get omakasePlayer(): OmakasePlayer | undefined;
-  abstract get isMainMediaAudio(): boolean | undefined;
+
+  protected _isMainMediaAudio: boolean | undefined;
+
+  get isMainMediaAudio(): boolean | undefined {
+    return this._isMainMediaAudio;
+  }
+
+  protected trackMainMediaAudio(playerEvent: PlayerEvent) {
+    if (playerEvent.type === PlayerEventType.PLAYER_MAIN_MEDIA_LOADED) {
+      const {mainMediaType, hasVideo} = playerEvent.data.mainMediaState;
+
+      if (mainMediaType === MainMediaType.AUDIO_FILE) {
+        this._isMainMediaAudio = true;
+      } else {
+        this._isMainMediaAudio = hasVideo === undefined ? undefined : !hasVideo;
+      }
+    } else if (playerEvent.type === PlayerEventType.PLAYER_MAIN_MEDIA_UNLOADED) {
+      this._isMainMediaAudio = undefined;
+    }
+  }
 }

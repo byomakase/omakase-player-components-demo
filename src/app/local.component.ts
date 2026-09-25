@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-import {Component, inject, OnDestroy, OnInit, signal} from '@angular/core';
+import {Component, inject, OnDestroy, OnInit, signal, ChangeDetectionStrategy} from '@angular/core';
 import {IconModule} from './common/icon/icon.module';
 import {ToastService} from './common/toast/toast.service';
 import {ToastComponent} from './common/toast/toast.component';
@@ -23,6 +23,7 @@ import {MediaHandlersLayoutComponent} from './components/layouts/media-handlers-
 import {Type} from '@angular/core';
 import {LayoutService} from './components/layout-menu/layout.service';
 import {LayoutHost} from './components/layouts/layout-host/layout-host.component';
+import {LayoutSwitchOverlay} from './components/layouts/layout-switch-overlay/layout-switch-overlay.component';
 import {FlyOutMenu} from './components/fly-outs/fly-out-menu/fly-out-menu.component';
 import {Subject, takeUntil} from 'rxjs';
 import {ActivatedRoute, Router} from '@angular/router';
@@ -33,6 +34,7 @@ import {MarkerLayoutComponent} from './components/layouts/marker-layout/marker-l
 import {SimpleLayoutComponent} from './components/layouts/simple-layout/simple-layout.component';
 import {TimelineLayoutComponent} from './components/layouts/timeline-layout/timeline-layout.component';
 import {ChromelessLayoutComponent} from './components/layouts/chromeless-layout/chromeless-layout.component';
+import {HybridLayoutComponent} from './components/layouts/hybrid-layout/hybrid-layout.component';
 import {TextLayoutComponent} from './components/layouts/text-layout/text-layout.component';
 import {AudioLayoutComponent} from './components/layouts/audio-layout/audio-layout.component';
 import {StampLayoutComponent} from './components/layouts/stamp-layout/stamp-layout.component';
@@ -44,13 +46,15 @@ const layouts: Record<Layout, Type<any>> = {
   'simple': SimpleLayoutComponent,
   'timeline': TimelineLayoutComponent,
   'chromeless': ChromelessLayoutComponent,
+  'hybrid': HybridLayoutComponent,
   'text': TextLayoutComponent,
   'stamp': StampLayoutComponent,
 };
 
 @Component({
   selector: 'app-local-root',
-  imports: [IconModule, FlyOutMenu, ToastComponent, LayoutMenu, LayoutHost],
+  imports: [IconModule, FlyOutMenu, ToastComponent, LayoutMenu, LayoutHost, LayoutSwitchOverlay],
+  changeDetection: ChangeDetectionStrategy.Eager,
   template: `
     <div class="header">
       <i appIcon="omakase-logo"> </i>
@@ -68,6 +72,7 @@ const layouts: Record<Layout, Type<any>> = {
       }
     </div>
     <div id="captions"></div>
+    <app-layout-switch-overlay />
   `,
 })
 export class AppLocalComponent implements OnInit, OnDestroy {

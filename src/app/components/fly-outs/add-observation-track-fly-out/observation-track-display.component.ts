@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-import {Component, computed, inject, input, output} from '@angular/core';
+import {Component, computed, inject, input, output, ChangeDetectionStrategy} from '@angular/core';
 import {IconDirective} from '../../../common/icon/icon.directive';
 import {StringUtil} from '../../../common/util/string-util';
 import {SidecarObservationTrack} from './observation-track.service';
@@ -35,6 +35,7 @@ import {SidecarObservationTrack} from './observation-track.service';
     </div>
   `,
   imports: [IconDirective],
+  changeDetection: ChangeDetectionStrategy.Eager,
   host: {
     'class': 'observation-track-display',
   },

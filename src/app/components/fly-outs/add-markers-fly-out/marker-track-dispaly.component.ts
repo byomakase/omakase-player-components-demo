@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-import {Component, computed, inject, input, output} from '@angular/core';
+import {Component, computed, inject, input, output, ChangeDetectionStrategy} from '@angular/core';
 import {IconDirective} from '../../../common/icon/icon.directive';
 import {StringUtil} from '../../../common/util/string-util';
 import {SidecarMarkerTrack, MarkerTrackService} from './marker-track.service';
@@ -40,6 +40,7 @@ import {ColorSquareComponent} from '../../../common/controls/color-picker/multic
     </div>
   `,
   imports: [IconDirective, ColorSquareComponent],
+  changeDetection: ChangeDetectionStrategy.Eager,
   host: {
     'class': 'marker-track-display',
   },

@@ -105,7 +105,7 @@ export class PlayerService extends AbstractPlayerService {
     return this.currentService.setThumbnailTrack(url);
   }
 
-  get isMainMediaAudio() {
+  override get isMainMediaAudio() {
     return this.currentService.isMainMediaAudio;
   }
 
@@ -125,11 +125,9 @@ export class PlayerService extends AbstractPlayerService {
           if (omakasePlayer.player.mainMedia) {
             observer.next(omakasePlayer);
           }
-          omakasePlayer.player.onEvent$
-            .pipe(filter((event) => event.type === PlayerEventType.PLAYER_MAIN_MEDIA_LOADED))
-            .subscribe(() => {
-              observer.next(omakasePlayer);
-            });
+          omakasePlayer.player.onEvent$.pipe(filter((event) => event.type === PlayerEventType.PLAYER_MAIN_MEDIA_LOADED)).subscribe(() => {
+            observer.next(omakasePlayer);
+          });
         });
       })
     );

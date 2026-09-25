@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-import {Component, HostListener, inject, signal} from '@angular/core';
+import {Component, HostListener, inject, signal, ChangeDetectionStrategy} from '@angular/core';
 import {FormControl, FormGroup, ReactiveFormsModule} from '@angular/forms';
 import {FlyOutService} from '../fly-out.service';
 import {IconDirective} from '../../../common/icon/icon.directive';
@@ -74,6 +74,7 @@ const COLOR_RESOLVER_ID = 'marker-fly-out';
       </div>
     </div>
   `,
+  changeDetection: ChangeDetectionStrategy.Eager,
   imports: [ReactiveFormsModule, IconDirective, MarkerTrackDisplay, NgbTooltip, ColorPickerComponent, CheckboxComponent, ColorSquareComponent],
 })
 export class AddMarkerTrackFlyOut {

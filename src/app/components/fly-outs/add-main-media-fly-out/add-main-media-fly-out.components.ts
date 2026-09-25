@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-import {Component, HostListener, inject, OnInit, signal} from '@angular/core';
+import {Component, HostListener, inject, OnInit, signal, ChangeDetectionStrategy} from '@angular/core';
 import {FormControl, FormGroup, ReactiveFormsModule} from '@angular/forms';
 import {FlyOutService} from '../fly-out.service';
 import {IconDirective} from '../../../common/icon/icon.directive';
@@ -113,6 +113,7 @@ const urlRegex = /[-a-zA-Z0-9@:%._\+~#=]{1,256}\.[a-zA-Z0-9()]{1,6}\b([-a-zA-Z0-
             (clicked)="toggleMultiAudioMode()"
           />
           <label class="input-label">Multiple Audio Mode</label>
+          <i class="tooltip-icon" appIcon="question" ngbTooltip="Applicable to some of the layouts" placement="top"></i>
         </div>
         <div class="button-wrapper">
           <button [disabled]="isLoadDisabled()" (click)="load()">LOAD VIDEO</button>
@@ -121,6 +122,7 @@ const urlRegex = /[-a-zA-Z0-9@:%._\+~#=]{1,256}\.[a-zA-Z0-9()]{1,6}\b([-a-zA-Z0-
       </form>
     </div>
   `,
+  changeDetection: ChangeDetectionStrategy.Eager,
   imports: [ReactiveFormsModule, IconDirective, NgbTooltip, CheckboxComponent],
 })
 export class AddMainMediaFlyOut implements OnInit {
@@ -302,7 +304,9 @@ export class AddMainMediaFlyOut implements OnInit {
                 });
               }
             },
-            error: () => this.toastService.show({message: 'Media load failed', type: 'error', duration: 5000}),
+            error: () => {
+              this.toastService.show({message: 'Media load failed', type: 'error', duration: 5000});
+            },
           });
       });
 

@@ -14,12 +14,13 @@
  * limitations under the License.
  */
 
-import {AfterViewInit, Component, effect, input, output, signal} from '@angular/core';
+import {AfterViewInit, Component, effect, input, output, signal, ChangeDetectionStrategy} from '@angular/core';
 import {FormControl, ReactiveFormsModule} from '@angular/forms';
 
 @Component({
   selector: 'app-theme-select',
   imports: [ReactiveFormsModule],
+  changeDetection: ChangeDetectionStrategy.Eager,
   template: `
     <select [formControl]="selectControl">
       @for (theme of themes(); track theme) {

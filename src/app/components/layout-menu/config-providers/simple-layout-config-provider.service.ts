@@ -38,6 +38,7 @@ export class SimpleLayoutConfigProviderService {
       chromingStyleUrl: '/assets/css/omakase-player.css',
 
       chromingThemeConfig: {
+        timeInteractive: true,
         controlBarVisibility: ControlBarVisibility.ENABLED,
         floatingControls: [DefaultThemeFloatingControl.PLAYBACK_CONTROLS, DefaultThemeFloatingControl.VU_METER],
         alwaysOnFloatingControls: [DefaultThemeFloatingControl.VU_METER],
@@ -49,14 +50,15 @@ export class SimpleLayoutConfigProviderService {
           DefaultThemeControl.TEN_FRAMES_FORWARD,
           DefaultThemeControl.FRAME_BACKWARD,
           DefaultThemeControl.TEN_FRAMES_BACKWARD,
-          DefaultThemeControl.BITC,
-          DefaultThemeControl.FULLSCREEN,
+          DefaultThemeControl.TIME_TOGGLE,
+          DefaultThemeControl.FULLSCREEN_TOGGLE,
           DefaultThemeControl.TEXT_TOGGLE,
           DefaultThemeControl.VOLUME,
           DefaultThemeControl.SCRUBBER,
           DefaultThemeControl.TRACK_SELECTOR,
-          DefaultThemeControl.DETACH,
+          DefaultThemeControl.DETACH_TOGGLE,
           DefaultThemeControl.ROUTER,
+          DefaultThemeControl.PLAYBACK_RATE,
           DefaultThemeControl.VU_METER_TOGGLE,
         ],
       },
@@ -67,9 +69,10 @@ export class SimpleLayoutConfigProviderService {
       playerTextMode: PlayerTextMode.SINGLE,
       chromingTheme: ChromingTheme.STAMP,
       chromingThemeConfig: {
+        timeInteractive: true,
         timeFormat: ChromingTimeFormat.TIMECODE,
         stampScale: StampThemeScale.FIT,
-        actionIcons: [StampThemeActionIcon.FULLSCREEN, StampThemeActionIcon.AUDIO_TOGGLE],
+        actionIcons: [StampThemeActionIcon.FULLSCREEN_TOGGLE, StampThemeActionIcon.AUDIO_TOGGLE],
         floatingControls: [StampThemeFloatingControl.ACTION_ICONS, StampThemeFloatingControl.PLAYBACK_CONTROLS, StampThemeFloatingControl.PROGRESS_BAR, StampThemeFloatingControl.TIME],
         alwaysOnFloatingControls: [StampThemeFloatingControl.PROGRESS_BAR, StampThemeFloatingControl.ACTION_ICONS, StampThemeFloatingControl.TIME],
       },
@@ -84,6 +87,7 @@ export class SimpleLayoutConfigProviderService {
       chromingThemeConfig: {
         timeFormat: ChromingTimeFormat.TIMECODE,
         controlBarVisibility: OmakaseControlBarVisibility.ENABLED,
+        timeInteractive: true,
         floatingControls: [
           OmakaseThemeFloatingControl.PROGRESS_BAR,
           OmakaseThemeFloatingControl.ACTION_ICONS,
@@ -104,10 +108,10 @@ export class SimpleLayoutConfigProviderService {
           OmakaseThemeControl.VOLUME,
           OmakaseThemeControl.PLAYBACK_RATE,
           OmakaseThemeControl.TRACK_SELECTOR,
-          OmakaseThemeControl.FULLSCREEN,
-          OmakaseThemeControl.DETACH,
+          OmakaseThemeControl.FULLSCREEN_TOGGLE,
+          OmakaseThemeControl.DETACH_TOGGLE,
           OmakaseThemeControl.CLOSE,
-          OmakaseThemeControl.TIME,
+          OmakaseThemeControl.TIME_TOGGLE,
           OmakaseThemeControl.ROUTER,
           OmakaseThemeControl.VU_METER,
           OmakaseThemeControl.VU_METER_TOGGLE,
@@ -122,6 +126,7 @@ export class SimpleLayoutConfigProviderService {
       chromingStyleUrl: '/assets/css/omakase-player.css',
       chromingThemeConfig: {
         visualization: AudioVisualization.ENABLED,
+        timeInteractive: true,
         controlBar: [
           AudioThemeControl.PLAY,
           AudioThemeControl.PLAYBACK_RATE,
@@ -148,13 +153,8 @@ export class SimpleLayoutConfigProviderService {
     return this._theme;
   }
 
-  public getThemeConfig(isMultiAudio: boolean = false) {
-    const config = this.themeConfig();
-    if (isMultiAudio) {
-      config.playerAudioMode = PlayerAudioMode.MULTIPLE;
-    }
-
-    return config;
+  public getThemeConfig() {
+    return this.themeConfig();
   }
 
   public get themes(): SimpleLayoutTheme[] {

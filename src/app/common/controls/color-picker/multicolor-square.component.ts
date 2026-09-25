@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-import {Component, computed, input, output} from '@angular/core';
+import {Component, computed, input, output, ChangeDetectionStrategy} from '@angular/core';
 import {ColorUtil} from '../../util/color-util';
 import {IconDirective} from '../../icon/icon.directive';
 
@@ -24,6 +24,7 @@ import {IconDirective} from '../../icon/icon.directive';
 @Component({
   selector: 'app-multicolor-square',
   imports: [IconDirective],
+  changeDetection: ChangeDetectionStrategy.Eager,
   template: `
     <div class="square">
       @for(color of colors(); track color) {

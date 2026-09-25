@@ -14,14 +14,14 @@
  * limitations under the License.
  */
 
-import {AfterViewInit, Component, CUSTOM_ELEMENTS_SCHEMA, effect, ElementRef, HostListener, inject, OnDestroy, signal, ViewChild} from '@angular/core';
+import {AfterViewInit, Component, CUSTOM_ELEMENTS_SCHEMA, effect, ElementRef, HostListener, inject, OnDestroy, signal, ViewChild, ChangeDetectionStrategy} from '@angular/core';
 import {PlayerComponent} from '../../player/player.component';
 import {SidecarMarkerTrack, MarkerTrackService} from '../../fly-outs/add-markers-fly-out/marker-track.service';
 import {IconDirective} from '../../../common/icon/icon.directive';
 import {LoadedSidecarText, SidecarTextService} from '../../fly-outs/add-sidecar-text-fly-out/text-sidecar.service';
 
 import {PlayerService} from '../../player/player.service';
-import {EMPTY, filter, map, of, Subject, switchMap, takeUntil} from 'rxjs';
+import {catchError, EMPTY, filter, map, of, Subject, switchMap, takeUntil} from 'rxjs';
 import {Constants} from '../../../constants/constants';
 import {StringUtil} from '../../../common/util/string-util';
 import {TextTrackGroupingLane} from '../../../common/timeline/grouping-lane/text-grouping-lane/text-track-grouping-lane';
@@ -52,7 +52,10 @@ import {
   MediaTemporalFormat,
   ObservationTrack,
   PlayerEventType,
+  PlayerTextEvent,
+  PlayerTextEventType,
   PlayerTextTrackState,
+  RelationType,
   ScrollbarLane,
   SourceUtil,
   TextTrack,
@@ -66,6 +69,8 @@ import {
   TimelineApi,
   TimelineLaneApi,
   TimelineNodeEventType,
+  TrackSource,
+  TrackType,
   UiEventType,
 } from '@byomakase/omakase-player';
 import {ThumbnailViewer} from '../../../common/thumbnail-viewer/thumbnail-viewer.component';
@@ -78,6 +83,7 @@ import {ObservationTrackGroupingLane} from '../../../common/timeline/grouping-la
   imports: [PlayerComponent, MarkerListComponent, IconDirective, ThumbnailViewer],
   host: {'class': 'timeline-layout'},
   schemas: [CUSTOM_ELEMENTS_SCHEMA],
+  changeDetection: ChangeDetectionStrategy.Eager,
   template: `
     <div class="north-pole">
       <div #leftSide class="left-side">
@@ -136,6 +142,8 @@ export class TimelineLayoutComponent implements AfterViewInit, OnDestroy {
 
   private _groupingLanesByTextTrackId: Map<string, TextTrackGroupingLane> = new Map();
   private _textTrackLanesByTextTrackId: Map<string, TextTrackLane> = new Map();
+
+  private _derivedVttTrackIdByTextTrackId: Map<string, string> = new Map();
 
   private _enteredMarkerIds: Set<string> = new Set();
   private _enteredMarkerHandlersIds: Set<string> = new Set();
@@ -225,8 +233,10 @@ export class TimelineLayoutComponent implements AfterViewInit, OnDestroy {
   ngAfterViewInit(): void {
     // make marker list the same size as player wrapper
     this.resizeObserver = new ResizeObserver(() => {
-      const height = this.leftSideRef.nativeElement.offsetHeight;
-      this.rightSideRef.nativeElement.style.height = `${height}px`;
+      requestAnimationFrame(() => {
+        const height = this.leftSideRef.nativeElement.offsetHeight;
+        this.rightSideRef.nativeElement.style.height = `${height}px`;
+      });
     });
 
     this.resizeObserver.observe(this.leftSideRef.nativeElement);
@@ -284,18 +294,32 @@ export class TimelineLayoutComponent implements AfterViewInit, OnDestroy {
         this.createObservationLanes();
         this._isInitialRenderDone.set(true);
       });
+
+    this.playerService
+      .observeMediaLoads(this._destroyed$)
+      .pipe(
+        switchMap((omakasePlayer) => {
+          if (!omakasePlayer) return EMPTY;
+          return omakasePlayer.player.text.onEvent$.pipe(
+            filter((event) => event.type === PlayerTextEventType.PLAYER_TEXT_TRACK_LOADED || event.type === PlayerTextEventType.PLAYER_TEXT_TRACK_UNLOADED)
+          );
+        })
+      )
+      .subscribe((event) => this.handleEmbeddedTextTrackEvent(event));
   }
 
   private tearDownTimeline() {
     this._isInitialRenderDone.set(false);
+    this._timeline()?.removeAllTimelineLanes();
+    // this._timeline()?.destroy();
     this._timeline.set(undefined);
-    this._timeline()?.destroy();
     this._renderedMarkerLanes = [];
     this._renderedMarkerTracks = [];
     this._renderedEmbeddedTextTracks = [];
     this._renderedSidecarTextTracks = [];
     this._groupingLanesByTextTrackId.clear();
     this._textTrackLanesByTextTrackId.clear();
+    this._derivedVttTrackIdByTextTrackId.clear();
     this._enteredMarkerHandlersIds.clear();
     this._enteredMarkerIds.clear();
     this._snapshotLane = undefined;
@@ -304,6 +328,10 @@ export class TimelineLayoutComponent implements AfterViewInit, OnDestroy {
     this._renderedObservationTracks = [];
     this._renderedObservationLanes = [];
     this._observationGroupingLane = undefined;
+  }
+
+  private resolveLiveTimeline(): TimelineApi | undefined {
+    return this.playerService.omakasePlayer?.player.isMainMediaLoaded ? this._timeline() : undefined;
   }
 
   /**
@@ -316,15 +344,92 @@ export class TimelineLayoutComponent implements AfterViewInit, OnDestroy {
     });
   }
 
-  /**
-   * Render text grouping lanes for each embedded text track. Only used during the initialization.
-   */
   private createEmbeddedTextLanes() {
-    const subtitlesTracks = this.playerService.omakasePlayer!.player.text.state.tracks['MAIN'];
+    const omakasePlayer = this.playerService.omakasePlayer;
+    if (!omakasePlayer) {
+      return;
+    }
 
-    subtitlesTracks.forEach((subtitlesTrack, index) => {
-      this.createTextLaneAtIndex(subtitlesTrack, index, true);
-    });
+    // live media renders text natively, so the player never derives VTT sidecars from the manifest text
+    // renditions - visualize the HLS text tracks themselves, their cues are read in as playback progresses
+    const playerTextTracks = this.isLiveMainMedia() ? omakasePlayer.player.text.state.tracks['MAIN'] : omakasePlayer.player.text.state.tracks['SIDECAR'];
+
+    playerTextTracks
+      .filter((textTrack) => this.isEmbeddedTextTrack(textTrack.trackId))
+      .forEach((textTrack) => {
+        if (this._groupingLanesByTextTrackId.has(textTrack.trackId)) {
+          return;
+        }
+        this.createTextLaneAtIndex(textTrack, this.resolveEmbeddedInsertIndex(textTrack.trackId), true);
+      });
+  }
+
+  private handleEmbeddedTextTrackEvent(event: PlayerTextEvent) {
+    if (!this.resolveLiveTimeline() || !this._isInitialRenderDone()) {
+      return;
+    }
+
+    if (event.type === PlayerTextEventType.PLAYER_TEXT_TRACK_LOADED) {
+      const trackId = event.data.playerTextTrack.trackId;
+      if (!this.isEmbeddedTextTrack(trackId) || this._groupingLanesByTextTrackId.has(trackId)) {
+        return;
+      }
+      this.createTextLaneAtIndex(event.data.playerTextTrack, this.resolveEmbeddedInsertIndex(trackId), true);
+    } else if (event.type === PlayerTextEventType.PLAYER_TEXT_TRACK_UNLOADED) {
+      const trackId = event.data.playerTextTrack.trackId;
+      const index = this._renderedEmbeddedTextTracks.findIndex((textTrack) => textTrack.trackId === trackId);
+      if (index >= 0) {
+        this.removeTextLaneAtIndex(index, true);
+      }
+    }
+  }
+
+  private isEmbeddedTextTrack(trackId: string): boolean {
+    const omakasePlayer = this.playerService.omakasePlayer;
+    const mainMedia = omakasePlayer?.player.mainMedia;
+    if (!omakasePlayer || !mainMedia) {
+      return false;
+    }
+
+    const track = omakasePlayer.track.get(trackId) as TextTrack | undefined;
+    if (!track) {
+      return false;
+    }
+
+    const mainMediaTextTrackIds = new Set(mainMedia.tracks.filter((t) => t.trackType === TrackType.TEXT_TRACK).map((t) => t.id));
+    if (this.isLiveMainMedia()) {
+      return mainMediaTextTrackIds.has(track.id);
+    }
+    return track.relations.some((relation) => relation.relationType === RelationType.DERIVED_FROM && mainMediaTextTrackIds.has(relation.entityId));
+  }
+
+  private isLiveMainMedia(): boolean {
+    return !!this.playerService.omakasePlayer?.player.mainMedia?.isLive;
+  }
+
+  private resolveEmbeddedManifestOrder(trackId: string): number {
+    const omakasePlayer = this.playerService.omakasePlayer;
+    const mainMedia = omakasePlayer?.player.mainMedia;
+    const track = omakasePlayer?.track.get(trackId) as TextTrack | undefined;
+    if (!mainMedia || !track) {
+      return -1;
+    }
+
+    if (this.isLiveMainMedia()) {
+      return mainMedia.tracks.findIndex((t) => t.id === track.id);
+    }
+
+    const derivedFromIds = new Set(track.relations.filter((r) => r.relationType === RelationType.DERIVED_FROM).map((r) => r.entityId));
+    return mainMedia.tracks.findIndex((t) => derivedFromIds.has(t.id));
+  }
+
+  private resolveEmbeddedInsertIndex(trackId: string): number {
+    const order = this.resolveEmbeddedManifestOrder(trackId);
+    let insertIndex = 0;
+    while (insertIndex < this._renderedEmbeddedTextTracks.length && this.resolveEmbeddedManifestOrder(this._renderedEmbeddedTextTracks[insertIndex].trackId) <= order) {
+      insertIndex++;
+    }
+    return insertIndex;
   }
 
   private createSidecarTextLanes() {
@@ -348,7 +453,8 @@ export class TimelineLayoutComponent implements AfterViewInit, OnDestroy {
    * @returns
    */
   private removeMarkerLaneAtIndex(index: number) {
-    if (!this._timeline()) {
+    const timeline = this.resolveLiveTimeline();
+    if (!timeline) {
       console.error('No timeline is present');
       return;
     }
@@ -363,7 +469,7 @@ export class TimelineLayoutComponent implements AfterViewInit, OnDestroy {
     this._renderedMarkerTracks.splice(index, 1);
     this._renderedMarkerLanes.splice(index, 1);
 
-    this._timeline()!.removeTimelineLane(markerLane.id);
+    timeline.removeTimelineLane(markerLane.id);
   }
 
   /**
@@ -450,8 +556,6 @@ export class TimelineLayoutComponent implements AfterViewInit, OnDestroy {
     });
 
     markerLane.onEvent$.pipe(takeUntil(this._destroyed$)).subscribe((markerTrackLaneEvent: MarkerTrackLaneEvent) => {
-      console.log(markerTrackLaneEvent, this._enteredMarkerIds);
-
       if (
         markerTrackLaneEvent.type === MarkerTrackLaneEventType.TIMELINE_MARKER_TRACK_LANE_ITEM_CLICK ||
         markerTrackLaneEvent.type === MarkerTrackLaneEventType.TIMELINE_MARKER_TRACK_LANE_ITEM_HANDLE_CLICK
@@ -488,11 +592,9 @@ export class TimelineLayoutComponent implements AfterViewInit, OnDestroy {
 
         document.body.style.cursor = 'grab';
       }
-
-      console.log(document.body.style.cursor);
     });
 
-    this._timeline()!.addTimelineLaneAtIndex(markerLane, this.resolveMarkerLaneIndex(index));
+    this._timeline()!.addTimelineLane(markerLane, {index: this.resolveMarkerLaneIndex(index)});
     this._renderedMarkerTracks.splice(index, 0, markerTrack);
     this._renderedMarkerLanes.splice(index, 0, markerLane);
   }
@@ -516,7 +618,7 @@ export class TimelineLayoutComponent implements AfterViewInit, OnDestroy {
   }
 
   private resolveSnapshotLaneIndex() {
-    return 1;
+    return 0;
   }
 
   /**
@@ -526,7 +628,7 @@ export class TimelineLayoutComponent implements AfterViewInit, OnDestroy {
    */
   private resolveMarkerLaneIndex(index: number) {
     const snapshotLaneOffset = this._snapshotLane ? 1 : 0;
-    return snapshotLaneOffset + index + 1; // scrubber lane is at 0
+    return snapshotLaneOffset + index; // scrubber lane is at 0
   }
 
   /**
@@ -535,7 +637,7 @@ export class TimelineLayoutComponent implements AfterViewInit, OnDestroy {
    */
   private resolveThumbnailLaneIndex() {
     const snapshotLaneOffset = this._snapshotLane ? 1 : 0;
-    return snapshotLaneOffset + this._renderedMarkerTracks.length + 1; // scrubber at 0
+    return snapshotLaneOffset + this._renderedMarkerTracks.length; // scrubber at 0
   }
 
   /**
@@ -551,7 +653,7 @@ export class TimelineLayoutComponent implements AfterViewInit, OnDestroy {
     const snapshotLaneOffset = this._snapshotLane ? 1 : 0;
 
     // scrubber at 0, each text track has 2 lanes (grouping + text track lane)
-    return snapshotLaneOffset + numberOfMarkerLanes + numberOfThumbnailLanes + 2 * (index + numberOfEmbeddedTextLanes) + 1;
+    return snapshotLaneOffset + numberOfMarkerLanes + numberOfThumbnailLanes + 2 * (index + numberOfEmbeddedTextLanes);
   }
 
   private createScrollbarLane() {
@@ -588,7 +690,7 @@ export class TimelineLayoutComponent implements AfterViewInit, OnDestroy {
     const numberOfSidecarTextLanes = this._renderedSidecarTextTracks.length;
 
     // scrubber at 0, text tracks each take 2 lanes (grouping + content), then observation grouping lane, then this index
-    return snapshotLaneOffset + numberOfMarkerLanes + numberOfThumbnailLanes + 2 * (numberOfEmbeddedTextLanes + numberOfSidecarTextLanes) + 1 + 1 + index;
+    return snapshotLaneOffset + numberOfMarkerLanes + numberOfThumbnailLanes + 2 * (numberOfEmbeddedTextLanes + numberOfSidecarTextLanes) + 1 + index;
   }
 
   /**
@@ -618,7 +720,7 @@ export class TimelineLayoutComponent implements AfterViewInit, OnDestroy {
 
     thumbnailLane.setTrack(thumbnailTrack);
 
-    timeline.addTimelineLaneAtIndex(thumbnailLane, this.resolveThumbnailLaneIndex());
+    timeline.addTimelineLane(thumbnailLane, {index: this.resolveThumbnailLaneIndex()});
     this._isThumbnailTrackRendered = true;
   }
 
@@ -654,26 +756,41 @@ export class TimelineLayoutComponent implements AfterViewInit, OnDestroy {
       loadingAnimation: true,
     });
 
-    const formatType$ = resolvedTrack.sourceFileFormatType
-      ? of(resolvedTrack.sourceFileFormatType)
-      : ProbingUtil.resolveFileFormat(omakasePlayer, SourceUtil.resolveUrlFromSource(resolvedTrack.source!)).pipe(map((fileFormat) => fileFormat?.type));
+    if (resolvedTrack.textTrackType === TextTrackType.HLS_TEXT_TRACK) {
+      // an HLS text track has no fetchable source file to probe or convert - its cues are read in from the
+      // natively rendered track as the stream progresses, so visualize the track itself right away
+      textTrackLane.setTrack(resolvedTrack);
+    } else {
+      const formatType$ = resolvedTrack.sourceFileFormatType
+        ? of(resolvedTrack.sourceFileFormatType)
+        : ProbingUtil.resolveFileFormat(omakasePlayer, SourceUtil.resolveUrlFromSource(resolvedTrack.source!)).pipe(map((fileFormat) => fileFormat?.type));
 
-    formatType$
-      .pipe(
-        switchMap((formatType) => {
-          if (formatType && formatType !== FileFormatType.VTT) {
-            this.toastService.show({message: `Timeline cannot visualize non-VTT text tracks`, type: 'warning', duration: 5000});
-            return EMPTY;
-          }
-          return resolvedTrack.areTimedItemsFetched ? of(undefined) : omakasePlayer.track.utils.fetchTimedItems(resolvedTrack.id).pipe(map(() => undefined));
-        })
-      )
-      .subscribe(() => {
-        textTrackLane.setTrack(resolvedTrack);
-      });
+      formatType$
+        .pipe(
+          switchMap((formatType) => {
+            if (formatType && formatType !== FileFormatType.VTT) {
+              return omakasePlayer.track.utils.convertTextTrack(TrackSource.of(trackId), {outputFormat: FileFormatType.VTT}).pipe(
+                switchMap((derivedTrack) => {
+                  this._derivedVttTrackIdByTextTrackId.set(trackId, derivedTrack.id);
+                  return omakasePlayer.track.utils.fetchTimedItems(derivedTrack.id).pipe(map(() => derivedTrack as TextTrack));
+                }),
+                catchError(() => {
+                  this.toastService.show({message: `Text track can't be visualized`, type: 'warning', duration: 5000});
+                  return EMPTY;
+                })
+              );
+            }
+            const fetch$ = resolvedTrack.areTimedItemsFetched ? of(undefined) : omakasePlayer.track.utils.fetchTimedItems(resolvedTrack.id);
+            return fetch$.pipe(map(() => resolvedTrack));
+          })
+        )
+        .subscribe((trackToVisualize) => {
+          textTrackLane.setTrack(trackToVisualize);
+        });
+    }
 
-    timeline.addTimelineLaneAtIndex(groupingLane, labelLaneIndex);
-    timeline.addTimelineLaneAtIndex(textTrackLane, labelLaneIndex + 1);
+    timeline.addTimelineLane(groupingLane, {index: labelLaneIndex});
+    timeline.addTimelineLane(textTrackLane, {index: labelLaneIndex + 1});
 
     groupingLane.addChildLane(textTrackLane);
 
@@ -681,14 +798,14 @@ export class TimelineLayoutComponent implements AfterViewInit, OnDestroy {
     this._textTrackLanesByTextTrackId.set(trackId, textTrackLane);
 
     if (embedded) {
-      this._renderedEmbeddedTextTracks.push(textTrack as PlayerTextTrackState);
+      this._renderedEmbeddedTextTracks.splice(index, 0, textTrack as PlayerTextTrackState);
     } else {
       this._renderedSidecarTextTracks.push(textTrack as LoadedSidecarText);
     }
   }
 
   private removeObservationLaneAtIndex(index: number) {
-    const timeline = this._timeline();
+    const timeline = this.resolveLiveTimeline();
     if (!timeline) {
       console.error('No timeline is present');
       return;
@@ -712,7 +829,7 @@ export class TimelineLayoutComponent implements AfterViewInit, OnDestroy {
   }
 
   private removeTextLaneAtIndex(index: number, embedded = false) {
-    const timeline = this._timeline();
+    const timeline = this.resolveLiveTimeline();
     if (!timeline) {
       console.error('No timeline is present');
       return;
@@ -743,6 +860,13 @@ export class TimelineLayoutComponent implements AfterViewInit, OnDestroy {
     timeline.removeTimelineLanes([groupingLane.id, textTrackLane.id]);
     this._groupingLanesByTextTrackId.delete(trackId);
     this._textTrackLanesByTextTrackId.delete(trackId);
+
+    // clean up the derived VTT track (repository-only) that backed the lane visualization
+    const derivedVttTrackId = this._derivedVttTrackIdByTextTrackId.get(trackId);
+    if (derivedVttTrackId) {
+      this.playerService.omakasePlayer?.track.delete(derivedVttTrackId);
+      this._derivedVttTrackIdByTextTrackId.delete(trackId);
+    }
   }
 
   /**
@@ -757,7 +881,7 @@ export class TimelineLayoutComponent implements AfterViewInit, OnDestroy {
       return;
     }
 
-    let scrubberLane = timeline.getScrubberLane();
+    let scrubberLane = timeline.scrubberLane;
 
     scrubberLane.setStyle(Constants.TIMELINE_LANE_STYLE);
 
@@ -814,6 +938,10 @@ export class TimelineLayoutComponent implements AfterViewInit, OnDestroy {
   }
 
   private registerAdditionalShortcutsHelpMenuGroup() {
+    if (this.playerService.isMainMediaAudio) {
+      return;
+    }
+
     const omakasePlayer = this.playerService.omakasePlayer!;
     const groupName = $localize`Additional Shortcuts`;
     const alreadyAdded = omakasePlayer.chroming.helpMenuGroups.some((g) => g.name === groupName);
@@ -832,6 +960,10 @@ export class TimelineLayoutComponent implements AfterViewInit, OnDestroy {
   }
 
   private wireSnapshotButton() {
+    if (this.playerService.isMainMediaAudio) {
+      return;
+    }
+
     const button = document.getElementsByClassName('chroming-snapshot-button')[0];
 
     if (!button) {
@@ -887,10 +1019,14 @@ export class TimelineLayoutComponent implements AfterViewInit, OnDestroy {
       }
     });
 
-    timeline.addTimelineLaneAtIndex(thumbnailLane, this.resolveSnapshotLaneIndex());
+    timeline.addTimelineLane(thumbnailLane, {index: this.resolveSnapshotLaneIndex()});
   }
 
   private canTakeSnapShot() {
+    if (this.playerService.isMainMediaAudio) {
+      return false;
+    }
+
     if (!this.snapshotTrack) {
       return true;
     }
@@ -951,7 +1087,7 @@ export class TimelineLayoutComponent implements AfterViewInit, OnDestroy {
     if (!this._observationGroupingLane) {
       this._observationGroupingLane = new ObservationTrackGroupingLane({style: Constants.LABEL_LANE_STYLE, text: 'Observation Tracks'});
       const observationGroupingLaneIndex = this.resolveObservationLaneIndex(0) - 1; //index before the first observation lane
-      timeline.addTimelineLaneAtIndex(this._observationGroupingLane, observationGroupingLaneIndex);
+      timeline.addTimelineLane(this._observationGroupingLane, {index: observationGroupingLaneIndex});
     }
 
     const scale = observationTrack.minValue !== undefined && observationTrack.maxValue !== undefined ? {min: observationTrack.minValue, max: observationTrack.maxValue} : undefined;
@@ -963,15 +1099,17 @@ export class TimelineLayoutComponent implements AfterViewInit, OnDestroy {
           style: Constants.OBSERVATION_CHART_LANE_STYLE,
           description: observationTrack.label,
           loadingAnimation: true,
+          minimized: this._observationGroupingLane.groupVisibility === 'minimized',
         })
       : new BarChartLane({
           style: Constants.OBSERVATION_CHART_LANE_STYLE,
           description: observationTrack.label,
           loadingAnimation: true,
+          minimized: this._observationGroupingLane.groupVisibility === 'minimized',
         });
 
     const laneIndex = this.resolveObservationLaneIndex(index);
-    timeline.addTimelineLaneAtIndex(lane, laneIndex);
+    timeline.addTimelineLane(lane, {index: laneIndex});
     this._observationGroupingLane!.addChildLane(lane);
     this._renderedObservationTracks.splice(index, 0, observationTrack);
     this._renderedObservationLanes.splice(index, 0, lane);
@@ -1020,7 +1158,6 @@ export class TimelineLayoutComponent implements AfterViewInit, OnDestroy {
   }
 
   private resolveObservationMeasurements(track: ObservationTrack): (string | undefined)[] {
-    console.log(track);
     const set = new Set<string | undefined>();
     track.timedItemsSorted.forEach((obs) => {
       obs.items.forEach((item) => set.add(item.measurement));

@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-import {Component, inject, signal} from '@angular/core';
+import {Component, inject, signal, ChangeDetectionStrategy} from '@angular/core';
 import {IconDirective} from '../../common/icon/icon.directive';
 import {NgbDropdownModule} from '@ng-bootstrap/ng-bootstrap';
 import {LayoutService} from './layout.service';
@@ -23,6 +23,7 @@ import {Layout} from '../../model/session.model';
 @Component({
   selector: 'app-layout-menu',
   imports: [IconDirective, NgbDropdownModule],
+  changeDetection: ChangeDetectionStrategy.Eager,
   template: `
     <div ngbDropdown class="layout-menu-wrapper">
       <div class="dropdown-toggle" ngbDropdownToggle>
@@ -30,7 +31,7 @@ import {Layout} from '../../model/session.model';
       </div>
       <div class="layout-menu" ngbDropdownMenu>
         @for (layout of layouts(); track layout) {
-          <button ngbDropdownItem (click)="sessionService.changeLayoutAndReloadMedia(layout)">{{ layoutLabels[layout] }}</button>
+          <button ngbDropdownItem (click)="sessionService.changeLayoutAndReloadMedia(layout)">{{ layoutService.layoutLabels[layout] }}</button>
         }
       </div>
     </div>
@@ -40,16 +41,6 @@ export class LayoutMenu {
   public layoutService = inject(LayoutService);
   public sessionService = inject(SessionService);
   public layouts = signal<Layout[]>([]);
-  public layoutLabels: Record<Layout, string> = {
-    'media-handlers': 'Media Handlers Layout',
-    'simple': 'Simple Layout',
-    'audio': 'Audio Layout',
-    'marker': 'Marker Layout',
-    'timeline': 'Timeline Layout',
-    'chromeless': 'Chromeless Layout',
-    'text': 'Text Layout',
-    'stamp': 'Stamp Layout',
-  };
 
   constructor() {
     this.layoutService.onLayoutChange$.subscribe((layout) => {

@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-import {Component, inject, Input} from '@angular/core';
+import {Component, inject, Input, ChangeDetectionStrategy} from '@angular/core';
 import {NgbToast} from '@ng-bootstrap/ng-bootstrap';
 import {ToastService} from './toast.service';
 import {NgClass} from '@angular/common';
@@ -23,6 +23,7 @@ import {NgClass} from '@angular/common';
   selector: 'app-toast',
   standalone: true,
   imports: [NgbToast, NgClass],
+  changeDetection: ChangeDetectionStrategy.Eager,
   template: `
     <ngb-toast class="toast" [ngClass]="typeToClass[toast.type]" [autohide]="toast.duration !== undefined" [delay]="toast.duration ?? 0" (hidden)="toastService.remove(toast)">
       <div class="toast-content">

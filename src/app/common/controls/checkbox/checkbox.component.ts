@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-import {Component, input, output} from '@angular/core';
+import {Component, input, output, ChangeDetectionStrategy} from '@angular/core';
 import {IconDirective} from '../../icon/icon.directive';
 
 /**
@@ -37,6 +37,7 @@ import {IconDirective} from '../../icon/icon.directive';
     </span>
   `,
   standalone: true,
+  changeDetection: ChangeDetectionStrategy.Eager,
   imports: [IconDirective],
 })
 export class CheckboxComponent {

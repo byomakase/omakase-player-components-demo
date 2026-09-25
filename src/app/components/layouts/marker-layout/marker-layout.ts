@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-import {Component, computed, CUSTOM_ELEMENTS_SCHEMA, effect, HostListener, inject, OnDestroy, signal} from '@angular/core';
+import {Component, computed, CUSTOM_ELEMENTS_SCHEMA, effect, HostListener, inject, OnDestroy, signal, ChangeDetectionStrategy} from '@angular/core';
 import {PlayerComponent} from '../../player/player.component';
 import {MarkerTrackService, SidecarMarkerTrack} from '../../fly-outs/add-markers-fly-out/marker-track.service';
 import {IconDirective} from '../../../common/icon/icon.directive';
@@ -41,6 +41,7 @@ import {
   MarkerTrack,
   UiEventType,
   MarkerOnChromingStyle,
+  HelpMenuGroupInsertPosition,
 } from '@byomakase/omakase-player';
 import {MarkerListComponent} from '../../../common/marker-list/marker-list.component';
 
@@ -49,6 +50,7 @@ import {MarkerListComponent} from '../../../common/marker-list/marker-list.compo
   imports: [PlayerComponent, IconDirective, MarkerListComponent],
   host: {'class': 'marker-layout'},
   schemas: [CUSTOM_ELEMENTS_SCHEMA],
+  changeDetection: ChangeDetectionStrategy.Eager,
   template: `
     <div class="left-side">
       <div class="player-wrapper">
@@ -254,6 +256,20 @@ export class MarkerLayoutComponent implements OnDestroy {
             }
           });
         });
+      });
+
+    this.playerService
+      .observeMediaLoads(this.destroyed$)
+      .pipe(takeUntil(this.destroyed$))
+      .subscribe((omakasePlayer) => {
+        if (!omakasePlayer) {
+          this.appendedHelpMenuGroup = false;
+          return;
+        }
+        if (!this.appendedHelpMenuGroup) {
+          omakasePlayer.chroming.addHelpMenuGroup(MarkerShortcutUtil.getKeyboardShortcutsHelpMenuGroup('unknown'), HelpMenuGroupInsertPosition.APPEND);
+          this.appendedHelpMenuGroup = true;
+        }
       });
   }
 

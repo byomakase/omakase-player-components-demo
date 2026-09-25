@@ -15,7 +15,7 @@
  */
 
 import {inject, Injectable, signal} from '@angular/core';
-import {MainMediaType, OmakasePlayer, OmakasePlayerConfig, PlayerEventType, ThumbnailTrack, TrackSource, TrackType} from '@byomakase/omakase-player';
+import {OmakasePlayer, OmakasePlayerConfig, ThumbnailTrack, TrackSource, TrackType} from '@byomakase/omakase-player';
 import {BehaviorSubject, Observable, ReplaySubject} from 'rxjs';
 import {AbstractPlayerService} from './player.service.abstract';
 import {StampLayoutService} from '../layouts/stamp-layout/stamp-layout.service';
@@ -26,7 +26,6 @@ import {StampLayoutService} from '../layouts/stamp-layout/stamp-layout.service';
 export class StampLayoutPlayerService extends AbstractPlayerService {
   private _omakasePlayer: OmakasePlayer | undefined;
   private _stampPlayerId: string | undefined;
-  private _isMainMediaAudio: boolean | undefined;
 
   public onCreated$: BehaviorSubject<OmakasePlayer | undefined> = new BehaviorSubject<OmakasePlayer | undefined>(undefined);
   public thumbnailTrackUrl = signal<string | undefined>(undefined);
@@ -55,11 +54,7 @@ export class StampLayoutPlayerService extends AbstractPlayerService {
       this._omakasePlayer = this.stampLayoutService.getPlayer(playerId);
 
       this._omakasePlayer!.player.onEvent$.subscribe((playerEvent) => {
-        if (playerEvent.type === PlayerEventType.PLAYER_MAIN_MEDIA_LOADED) {
-          this._isMainMediaAudio = playerEvent.data.mainMediaState.mainMediaType === MainMediaType.AUDIO_FILE;
-        } else if (playerEvent.type === PlayerEventType.PLAYER_MAIN_MEDIA_UNLOADED) {
-          this._isMainMediaAudio = undefined;
-        }
+        this.trackMainMediaAudio(playerEvent);
       });
 
       this.onCreated$.next(this._omakasePlayer);
@@ -118,6 +113,7 @@ export class StampLayoutPlayerService extends AbstractPlayerService {
     this._isReloading = shouldReload;
     this.thumbnailTrack.set(undefined);
     this.thumbnailTrackUrl.set(undefined);
+    this._isMainMediaAudio = undefined;
     if (this._omakasePlayer) {
       try {
         this.stampLayoutService.destroyStampPlayer(this._stampPlayerId!);
@@ -136,9 +132,5 @@ export class StampLayoutPlayerService extends AbstractPlayerService {
    */
   get omakasePlayer() {
     return this._omakasePlayer;
-  }
-
-  get isMainMediaAudio() {
-    return this._isMainMediaAudio;
   }
 }

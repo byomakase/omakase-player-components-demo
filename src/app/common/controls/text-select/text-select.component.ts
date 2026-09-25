@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-import {AfterViewInit, Component, computed, OnDestroy, signal} from '@angular/core';
+import {AfterViewInit, Component, computed, OnDestroy, signal, ChangeDetectionStrategy} from '@angular/core';
 import {FormControl, ReactiveFormsModule} from '@angular/forms';
 import {EMPTY, filter, Subject, switchMap} from 'rxjs';
 import {PlayerService} from '../../../components/player/player.service';
@@ -28,6 +28,7 @@ import {PlayerTextEventType, TextTrack} from '@byomakase/omakase-player';
 @Component({
   selector: 'app-text-select',
   imports: [ReactiveFormsModule],
+  changeDetection: ChangeDetectionStrategy.Eager,
   template: `
     <select [formControl]="selectControl">
       @if (areSubtitlesLoaded()) {

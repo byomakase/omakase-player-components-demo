@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-import {Component, HostListener, inject, signal} from '@angular/core';
+import {Component, HostListener, inject, signal, ChangeDetectionStrategy} from '@angular/core';
 import {FormControl, FormGroup, ReactiveFormsModule} from '@angular/forms';
 import {FlyOutService} from '../fly-out.service';
 import {IconDirective} from '../../../common/icon/icon.directive';
@@ -89,6 +89,7 @@ const urlRegex = /[-a-zA-Z0-9@:%._\+~#=]{1,256}\.[a-zA-Z0-9()]{1,6}\b([-a-zA-Z0-
       </div>
     </div>
   `,
+  changeDetection: ChangeDetectionStrategy.Eager,
   imports: [ReactiveFormsModule, IconDirective, NgbTooltip, ColorPickerComponent, ObservationTrackDisplay],
 })
 export class AddObservationTrackFlyOut {

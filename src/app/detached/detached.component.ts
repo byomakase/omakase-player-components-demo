@@ -14,12 +14,13 @@
  * limitations under the License.
  */
 
-import {AfterViewInit, Component} from '@angular/core';
+import {AfterViewInit, Component, ChangeDetectionStrategy} from '@angular/core';
 import {OmakasePlayerDetached, PlayerAudioMode} from '@byomakase/omakase-player';
 import {ActivatedRoute} from '@angular/router';
 
 @Component({
   selector: 'app-detached-root',
+  changeDetection: ChangeDetectionStrategy.Eager,
   template: ` <div id="omakase-player-detached"></div> `,
 })
 export class AppDetachedComponent implements AfterViewInit {

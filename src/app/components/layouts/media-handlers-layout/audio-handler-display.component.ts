@@ -1,4 +1,4 @@
-import {Component, input, signal, OnInit, computed, AfterViewInit, inject, AfterContentInit, effect, ViewChild, ElementRef} from '@angular/core';
+import {Component, input, signal, OnInit, computed, AfterViewInit, inject, AfterContentInit, effect, ViewChild, ElementRef, ChangeDetectionStrategy} from '@angular/core';
 import {FormControl, ReactiveFormsModule} from '@angular/forms';
 import {AudioHandlerApi, AudioState, MainMediaType, PlayerAudioType, PlayerEventType, RouterVisualization, RouterVisualizationTrack} from '@byomakase/omakase-player';
 import {PlayerService} from '../../player/player.service';
@@ -10,6 +10,7 @@ import {IconDirective} from '../../../common/icon/icon.directive';
   selector: 'app-audio-handler-display',
   standalone: true,
   imports: [ReactiveFormsModule, IconDirective],
+  changeDetection: ChangeDetectionStrategy.Eager,
   template: `
     <div class="dropdown-container">
       <div class="dropdown-button" (click)="toggleDropdown()">

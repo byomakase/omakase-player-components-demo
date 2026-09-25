@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-import {Component, computed, effect, ElementRef, inject, input, output, signal, viewChild} from '@angular/core';
+import {Component, computed, effect, ElementRef, inject, input, output, signal, viewChild, ChangeDetectionStrategy} from '@angular/core';
 import {AbstractControl, FormControl, ReactiveFormsModule, ValidatorFn, Validators} from '@angular/forms';
 import {MediaTemporalFormat, SpanTemporal, TextCue, TextTrack, TimedItemTemporalType} from '@byomakase/omakase-player';
 import {PlayerService} from '../../components/player/player.service';
@@ -23,6 +23,7 @@ import {PlayerService} from '../../components/player/player.service';
   selector: 'app-text-cue-view',
   standalone: true,
   imports: [ReactiveFormsModule],
+  changeDetection: ChangeDetectionStrategy.Eager,
   template: `
     <div class="text-cue-view">
       <div class="time-display" (dblclick)="startEdit('start', $event)">

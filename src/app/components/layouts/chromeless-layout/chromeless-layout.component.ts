@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-import {AfterViewInit, Component, CUSTOM_ELEMENTS_SCHEMA, inject, signal} from '@angular/core';
+import {AfterViewInit, Component, CUSTOM_ELEMENTS_SCHEMA, inject, signal, ChangeDetectionStrategy} from '@angular/core';
 import {PlayerComponent} from '../../player/player.component';
 import {Subject, filter, merge, BehaviorSubject, switchMap, tap, EMPTY} from 'rxjs';
 import {MarkerTrackService} from '../../fly-outs/add-markers-fly-out/marker-track.service';
@@ -38,6 +38,7 @@ type SafeZoneRatio = 'title-safe' | 'action-safe';
   imports: [PlayerComponent, ReactiveFormsModule, SidecarAudioSelectComponent, SidecarTextSelectComponent, TimecodeDisplay],
   schemas: [CUSTOM_ELEMENTS_SCHEMA],
   host: {'class': 'chromeless-layout'},
+  changeDetection: ChangeDetectionStrategy.Eager,
   template: `
     <div class="left-side">
       <div class="player-wrapper">

@@ -15,7 +15,7 @@
  */
 
 import {CommonModule} from '@angular/common';
-import {Component, ElementRef, HostListener, input, OnInit, output} from '@angular/core';
+import {Component, ElementRef, HostListener, input, OnInit, output, ChangeDetectionStrategy} from '@angular/core';
 import {IconModule} from '../../icon/icon.module';
 import {ColorUtil} from '../../util/color-util';
 import {ColorSquareComponent} from './multicolor-square.component';
@@ -28,6 +28,7 @@ import {ColorSquareComponent} from './multicolor-square.component';
   selector: 'app-color-picker',
   standalone: true,
   imports: [IconModule, CommonModule, ColorSquareComponent],
+  changeDetection: ChangeDetectionStrategy.Eager,
   template: `<div class="color-picker-container">
     @for (color of colors(); track color) { @if (color === 'multicolor') {
     <app-multicolor-square [active]="color === activeColor()" (click)="selectColor('multicolor')" [colors]="colors().slice(1, 5)"> </app-multicolor-square>
@@ -63,8 +64,8 @@ export class ColorPickerComponent implements OnInit {
   }
 
   @HostListener('document:click', ['$event.target'])
-  public onClick(targetElement: HTMLElement): void {
-    const clickedInside = this.elementRef.nativeElement.contains(targetElement);
+  public onClick(targetElement: EventTarget | null): void {
+    const clickedInside = this.elementRef.nativeElement.contains(targetElement as Node | null);
     if (!clickedInside) {
       this.clickOutside.emit();
     }

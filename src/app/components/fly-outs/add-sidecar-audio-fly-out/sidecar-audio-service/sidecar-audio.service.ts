@@ -94,6 +94,7 @@ export class SidecarAudioService extends AbstractSidecarAudioService {
       case 'simple':
       case 'timeline':
       case 'chromeless':
+      case 'hybrid':
       case 'audio':
       case 'text':
         this.currentService = this.injector.get(SimpleLayoutSidecarAudioService);

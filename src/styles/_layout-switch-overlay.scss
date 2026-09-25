@@ -1,0 +1,45 @@
+@use "variables";
+
+.layout-switch-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 3; // above the toast container (2) so nothing overlaps the mask
+
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  gap: 20px;
+
+  background-color: rgba(226, 226, 226, 0.85);
+  animation: fadeIn 0.15s ease;
+
+  .layout-switch-spinner {
+    width: 56px;
+    height: 56px;
+
+    border: 4px solid rgba(102, 45, 145, 0.25);
+    border-top-color: variables.$color-text-accent;
+    border-radius: 50%;
+
+    animation: layoutSwitchSpin 0.8s linear infinite;
+  }
+
+  .layout-switch-message {
+    font-family: variables.$font-family-oswald;
+    color: variables.$color-text-accent;
+    font-size: 20px;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .layout-switch-overlay {
+    animation: none;
+
+    .layout-switch-spinner {
+      animation-duration: 2s;
+    }
+  }
+}

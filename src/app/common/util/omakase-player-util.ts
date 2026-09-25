@@ -109,16 +109,21 @@ export class OmakasePlayerUtil {
       zoomStep: 200,
       volumeStep: 0.1,
     };
-    const targetElement = event.target as HTMLElement;
+    // composedPath() pierces shadow DOM; event.target is retargeted to the shadow host,
+    // so we inspect the full composed path to find the real originating element.
+    const path = event.composedPath() as HTMLElement[];
     const formInputs = ['INPUT', 'TEXTAREA', 'OMAKASE-MARKER-LIST'];
-    if (formInputs.includes(targetElement.tagName.toUpperCase())) {
+    const classNames = new Set(['omakase-time-edit-input']);
+    const isFormInput = path.some(
+      (el) => el instanceof HTMLElement && (formInputs.includes(el.tagName?.toUpperCase()) || [...el.classList].some((className) => classNames.has(className)))
+    );
+    if (isFormInput) {
       return false;
     }
     if (omakasePlayer && omakasePlayer.player.mainMedia) {
       const outputHandler = omakasePlayer.player.audio.getHandler(PlayerAudioType.OUTPUT)!;
       //  Play / Pause
-      if (event.code === 'Space' && (userAgent !== 'safari' || !omakasePlayer.player.isFullScreen())) {
-        // enabled only in non-fullscreen mode for safari
+      if (event.code === 'Space') {
         omakasePlayer.player.playerSession.playback.paused ? omakasePlayer.player.play() : omakasePlayer.player.pause();
         return true;
       }

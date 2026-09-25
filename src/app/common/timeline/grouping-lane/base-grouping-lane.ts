@@ -44,20 +44,17 @@ export abstract class BaseGroupingLane<C extends BaseGroupingLaneConfig, S exten
     });
   }
 
-  prepareForTimeline(timeline: TimelineImpl, player: PlayerApi, ompProvider: OmpProvider): void {
+  override prepareForTimeline(timeline: TimelineImpl, player: PlayerApi, ompProvider: OmpProvider): void {
     // LabelLane.prepareForTimeline is @internal in the public d.ts but exists at runtime.
-    // @ts-expect-error invoking an @internal method on the parent class
     super.prepareForTimeline(timeline, player, ompProvider);
 
-    setTimeout(() => {
-      this.addTimelineNode({
-        timelineNode: this._groupMinimizeMaximizeButton,
-        width: 22,
-        height: 22,
-        justify: 'start',
-        margin: [0, 5, 0, 0],
-      });
-    }, 100);
+    this.addTimelineNode({
+      timelineNode: this._groupMinimizeMaximizeButton,
+      width: 22,
+      height: 22,
+      justify: 'start',
+      margin: [0, 5, 0, 0],
+    });
 
     this._groupMinimizeMaximizeButton.onEvent$.pipe(takeUntil(this._destroyBreaker.observer)).subscribe({
       next: (event) => {

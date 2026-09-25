@@ -7,6 +7,12 @@
   }
 }
 
+@keyframes layoutSwitchSpin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
 @keyframes thumbnailSlideIn {
   from {
     opacity: 0;

@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-import {Component, ElementRef, Input, OnDestroy, AfterViewInit, CUSTOM_ELEMENTS_SCHEMA, input, effect} from '@angular/core';
+import {Component, ElementRef, Input, OnDestroy, AfterViewInit, CUSTOM_ELEMENTS_SCHEMA, input, effect, ChangeDetectionStrategy} from '@angular/core';
 import {Observable, Subscription} from 'rxjs';
 
 /**
@@ -22,6 +22,7 @@ import {Observable, Subscription} from 'rxjs';
 @Component({
   selector: 'app-timecode-display',
   schemas: [CUSTOM_ELEMENTS_SCHEMA],
+  changeDetection: ChangeDetectionStrategy.Eager,
   template: `<timecode-display></timecode-display>`,
 })
 export class TimecodeDisplay implements AfterViewInit, OnDestroy {

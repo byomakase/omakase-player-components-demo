@@ -40,15 +40,6 @@ class TextLayout {
     style: {
       backgroundOpacity: 1,
       backgroundFill: TextLayout.VARIABLES.timelineBackground,
-
-      headerHeight: 18,
-      headerMarginBottom: 1,
-      headerBackgroundOpacity: 1,
-
-      footerHeight: 10,
-      footerMarginTop: 0,
-      footerBackgroundOpacity: 0.6,
-
       leftPaneWidth: 0,
 
       rightPaneMarginLeft: 20,
@@ -75,8 +66,6 @@ class TextLayout {
       scrubberTextYOffset: -14,
       scrubberTextFontSize: 12,
       scrubberTextFill: '#662d91',
-
-      scrubberMarginBottom: 1,
     },
   };
 
@@ -91,8 +80,7 @@ class TextLayout {
     ...TextLayout.TIMELINE_LANE_STYLE,
     height: 50,
     textLaneItemOpacity: 1,
-    paddingTop: 10,
-    paddingBottom: 10,
+    padding: 10,
     textLaneItemFill: '#662d91',
   };
 
@@ -123,8 +111,7 @@ export class Constants {
     ...this.TIMELINE_LANE_STYLE,
     height: 40,
     textLaneItemOpacity: 1,
-    paddingTop: 7,
-    paddingBottom: 7,
+    padding: [7, 7],
     textLaneItemFill: '#662d91',
     loadingAnimationFill: '#c793ef',
     loadingAnimationType: 'pulse',
@@ -221,14 +208,6 @@ export class Constants {
       backgroundOpacity: 1,
       backgroundFill: this.VARIABLES.timelineBackground,
 
-      headerHeight: 18,
-      headerMarginBottom: 1,
-      headerBackgroundOpacity: 1,
-
-      footerHeight: 50,
-      footerMarginTop: 1,
-      footerBackgroundOpacity: 0.6,
-
       leftPaneWidth: 200,
 
       rightPaneMarginLeft: 20,
@@ -255,8 +234,6 @@ export class Constants {
       scrubberTextYOffset: -14,
       scrubberTextFontSize: 12,
       scrubberTextFill: '#662d91',
-
-      scrubberMarginBottom: 1,
     },
   };
 

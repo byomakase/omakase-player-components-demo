@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-import {Component, computed, CUSTOM_ELEMENTS_SCHEMA, effect, inject, OnDestroy, OnInit, signal} from '@angular/core';
+import {Component, computed, CUSTOM_ELEMENTS_SCHEMA, effect, inject, OnDestroy, OnInit, signal, ChangeDetectionStrategy} from '@angular/core';
 import {PlayerComponent} from '../../player/player.component';
 import {toObservable} from '@angular/core/rxjs-interop';
 // import {MarkerTrackApi, MomentMarker, PeriodMarker} from '@byomakase/omakase-player';
@@ -78,6 +78,7 @@ interface MarkerDropdownOptions {
   schemas: [CUSTOM_ELEMENTS_SCHEMA],
   imports: [PlayerComponent, ReactiveFormsModule, AudioHandlerDisplayComponent, OutputAudioHandlerDisplayComponent],
   host: {'class': 'media-handlers-layout'},
+  changeDetection: ChangeDetectionStrategy.Eager,
   template: `
     <div class="left-side">
       <div class="player-container">
@@ -100,35 +101,35 @@ interface MarkerDropdownOptions {
         </div>
       }
       <div class="sidecar-controls">
-        <div class="audio-track-controls">
+        <div class="track-select-grouping">
           @if (hasAudioTracks()) {
             <div class="track-controls-header">Audio</div>
           }
           @if (isMultiAudio()) {
             @for (singularCheckboxControl of audioTrackCheckboxControls; track singularCheckboxControl.id) {
-              <label>
+              <div class="label">
                 <input [id]="singularCheckboxControl.id" type="checkbox" [formControl]="singularCheckboxControl.control" />
-                {{ singularCheckboxControl.label }}
-              </label>
+                <span [title]="singularCheckboxControl.label">{{ singularCheckboxControl.label }}</span>
+              </div>
             }
           } @else {
             @for (option of audioTrackRadioOptions(); track option.value) {
-              <label>
+              <div class="label">
                 <input type="radio" name="audio-radio" [id]="option.value" [formControl]="audioTrackRadioControl" [value]="option.value" />
-                {{ option.label }}
-              </label>
+                <span [title]="option.label">{{ option.label }}</span>
+              </div>
             }
           }
         </div>
-        <div class="text-track-controls">
+        <div class="track-select-grouping">
           @if (textTrackRadioOptions().length > 0) {
             <div class="track-controls-header">Text</div>
           }
           @for (option of textTrackRadioOptions(); track option.value) {
-            <label>
+            <div class="label">
               <input type="radio" name="text-radio" [id]="option.value" [formControl]="textTrackRadioControl" [value]="option.value" />
-              {{ option.label }}
-            </label>
+              <span [title]="option.label">{{ option.label }}</span>
+            </div>
           }
         </div>
       </div>
@@ -465,6 +466,9 @@ export class MediaHandlersLayoutComponent implements OnDestroy, OnInit {
           takeUntil(this.destroyed$)
         )
         .subscribe((event) => {
+          if (this.audioTrackCheckboxControls.some((checkboxControl) => checkboxControl.id === event.data.playerAudioTrack.trackId)) {
+            return;
+          }
           const formControl = new FormControl<boolean>(event.data.playerAudioTrack.active);
           formControl.valueChanges.subscribe((newValue) => {
             omakasePlayer.player.audio.switchTrack(event.data.playerAudioTrack.trackId, !!newValue);
@@ -502,7 +506,7 @@ export class MediaHandlersLayoutComponent implements OnDestroy, OnInit {
           takeUntil(this.destroyed$)
         )
         .subscribe((event) => {
-          this.sidecarTextTracks.update((prev) => [...prev, event.data.playerTextTrack]);
+          this.sidecarTextTracks.update((prev) => (prev.some((track) => track.trackId === event.data.playerTextTrack.trackId) ? prev : [...prev, event.data.playerTextTrack]));
         });
 
       omakasePlayer.player.text.onEvent$

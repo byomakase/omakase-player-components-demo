@@ -14,19 +14,21 @@
  * limitations under the License.
  */
 
-import {afterNextRender, afterRenderEffect, AfterViewInit, Component, CUSTOM_ELEMENTS_SCHEMA, effect, ElementRef, inject, Injector, OnDestroy, signal, untracked, viewChild} from '@angular/core';
+import {afterNextRender, afterRenderEffect, AfterViewInit, Component, CUSTOM_ELEMENTS_SCHEMA, effect, ElementRef, inject, Injector, OnDestroy, signal, untracked, viewChild, ChangeDetectionStrategy} from '@angular/core';
 import {PlayerComponent} from '../../player/player.component';
 import {PlayerService} from '../../player/player.service';
 import {debounceTime, EMPTY, filter, merge, Subject, switchMap, takeUntil, tap, timer} from 'rxjs';
 import {TextTrack, FileFormatType, TextTrackLane, TimelineApi, RelationType, ThumbnailTrackLane, TextCue, TimedItemTemporalType, TextTrackType, PlayerEventType} from '@byomakase/omakase-player';
 import {TextTrackEditor} from '../../../common/text-track-editor/text-track-editor.component';
 import {Constants} from '../../../constants/constants';
+import {SidecarTextService} from '../../fly-outs/add-sidecar-text-fly-out/text-sidecar.service';
 
 @Component({
   selector: 'app-text-layout',
   imports: [PlayerComponent, TextTrackEditor],
   host: {'class': 'text-layout'},
   schemas: [CUSTOM_ELEMENTS_SCHEMA],
+  changeDetection: ChangeDetectionStrategy.Eager,
   template: `
     <div #leftSide class="left-side">
       <div class="player-wrapper">
@@ -53,6 +55,7 @@ export class TextLayoutComponent implements OnDestroy, AfterViewInit {
   private destroyed$ = new Subject<void>();
 
   private playerService = inject(PlayerService);
+  private sidecarTextService = inject(SidecarTextService);
   private textTrackLane = signal<TextTrackLane | undefined>(undefined);
 
   public timelineTextTrack = signal<TextTrack | undefined>(undefined);
@@ -71,7 +74,11 @@ export class TextLayoutComponent implements OnDestroy, AfterViewInit {
     this.resizeObserver?.disconnect();
     this.destroyed$.next();
     this.destroyed$.complete();
-    this._timeline?.destroy();
+    this.releaseTimeline();
+  }
+
+  private releaseTimeline() {
+    this._timeline = undefined;
   }
 
   constructor() {
@@ -120,6 +127,7 @@ export class TextLayoutComponent implements OnDestroy, AfterViewInit {
       .pipe(
         switchMap((omakasePlayer) => {
           if (!omakasePlayer) {
+            this.tearDown();
             return EMPTY;
           }
           this.resolveTimelineVisibility();
@@ -162,10 +170,8 @@ export class TextLayoutComponent implements OnDestroy, AfterViewInit {
     }
 
     this.timelineTextTrack.set(activeTrack);
-
-    const derivedFromRelation = activeTrack.relations.find(
-      (r) => r.relationType === RelationType.DERIVED_FROM && (omakasePlayer.track.get(r.entityId) as TextTrack).textTrackType !== TextTrackType.HLS_TEXT_TRACK
-    );
+    const originalSidecarIds = new Set(this.sidecarTextService.loadedSidecarTexts().map((t) => t.id));
+    const derivedFromRelation = activeTrack.relations.find((r) => r.relationType === RelationType.DERIVED_FROM && originalSidecarIds.has(r.entityId));
     const editorTrack = derivedFromRelation ? (omakasePlayer.track.get(derivedFromRelation.entityId) as TextTrack) : activeTrack;
 
     if (!editorTrack) {
@@ -191,8 +197,7 @@ export class TextLayoutComponent implements OnDestroy, AfterViewInit {
   }
 
   private tearDown() {
-    this._timeline?.destroy();
-    this._timeline = undefined;
+    this.releaseTimeline();
     this.isTimelineVisible.set(false);
     this.timelineTextTrack.set(undefined);
     this.editorTextTrack.set(undefined);
@@ -200,10 +205,8 @@ export class TextLayoutComponent implements OnDestroy, AfterViewInit {
   }
 
   private createTimeline() {
-    if (this._timeline) {
-      this._timeline.destroy();
-      this._timeline = undefined;
-    }
+    // createTimeline() below destroys any timeline the player still holds, this one included
+    this.releaseTimeline();
 
     const omakasePlayer = this.playerService.omakasePlayer!;
 
@@ -235,7 +238,7 @@ export class TextLayoutComponent implements OnDestroy, AfterViewInit {
       return;
     }
 
-    let scrubberLane = timeline.getScrubberLane();
+    let scrubberLane = timeline.scrubberLane;
 
     scrubberLane.setStyle(Constants.TIMELINE_LANE_STYLE);
   }

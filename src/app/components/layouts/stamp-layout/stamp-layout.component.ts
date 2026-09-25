@@ -1,4 +1,4 @@
-import {afterRender, Component, computed, effect, inject, OnDestroy} from '@angular/core';
+import {afterEveryRender, Component, computed, effect, inject, OnDestroy, ChangeDetectionStrategy} from '@angular/core';
 import {Subject, filter, take, takeUntil} from 'rxjs';
 import {MarkerTrackService, SidecarMarkerTrack} from '../../fly-outs/add-markers-fly-out/marker-track.service';
 import {ColorService} from '../../../common/services/color.service';
@@ -8,6 +8,7 @@ import {ChromingTrackDestination, MarkerStyle, MarkerTrack as OmakaseMarkerTrack
 @Component({
   selector: 'app-stamp-layout',
   host: {class: 'stamp-layout'},
+  changeDetection: ChangeDetectionStrategy.Eager,
   template: `
     <div class="grid-container">
       @if (playerIds().length) {
@@ -54,7 +55,7 @@ export class StampLayoutComponent implements OnDestroy {
     });
 
     // after the dom is painted, check if there are players to be instantiated in newly created divs
-    afterRender(() => {
+    afterEveryRender(() => {
       const pending = this.stampLayoutService.pendingPlayerIds();
       if (pending.length) {
         pending.forEach((id) => {
@@ -83,13 +84,16 @@ export class StampLayoutComponent implements OnDestroy {
         if (playerId) targetAssignments.set(markerTrack.id!, playerId);
       });
 
+      const playerIdsWithoutMarkerTrack = instantiatedPlayerIds.slice(loadedMarkerTracks.length);
+
+      playerIdsWithoutMarkerTrack.forEach((playerId) => {
+        this.deleteProgressBarMarkerBar(this.stampLayoutService.getPlayer(playerId));
+      });
+
       [...this.playerIdsByMarkerTrackIds.entries()].forEach(([markerTrackId, currentPlayerId]) => {
         const targetPlayerId = targetAssignments.get(markerTrackId);
         if (targetPlayerId !== currentPlayerId) {
-          const player = this.stampLayoutService.getPlayer(currentPlayerId);
-          if (player?.chroming.getMarkerBar(ChromingTrackDestination.PROGRESS_BAR)) {
-            player.chroming.deleteMarkerBar(ChromingTrackDestination.PROGRESS_BAR);
-          }
+          this.deleteProgressBarMarkerBar(this.stampLayoutService.getPlayer(currentPlayerId));
           this.playerIdsByMarkerTrackIds.delete(markerTrackId);
         }
       });
@@ -131,6 +135,22 @@ export class StampLayoutComponent implements OnDestroy {
   }
 
   /**
+   * Removes the marker bar presented in the progress bar chroming, if there is one.
+   *
+   * `chroming.getMarkerBar` / `chroming.deleteMarkerBar` are keyed by marker bar id, not by
+   * destination, so the id has to be resolved through `getMarkerBars()` first.
+   *
+   * @param player - Omakase player instance whose progress bar marker bar should be removed
+   */
+  private deleteProgressBarMarkerBar(player: OmakasePlayer | undefined) {
+    const markerBar = player?.chroming.getMarkerBars()[ChromingTrackDestination.PROGRESS_BAR];
+
+    if (markerBar) {
+      player!.chroming.deleteMarkerBar(markerBar.id).pipe(takeUntil(this.destroyed$)).subscribe();
+    }
+  }
+
+  /**
    * Presents a marker track inside progress bar chroming. If a marker track has been previously
    * set, it will be cleared.
    *
@@ -139,10 +159,7 @@ export class StampLayoutComponent implements OnDestroy {
    * @returns
    */
   private createMarkerTrack(player: OmakasePlayer, markerTrack: SidecarMarkerTrack) {
-    const existing = player.chroming.getMarkerBar(ChromingTrackDestination.PROGRESS_BAR);
-    if (existing) {
-      player.chroming.deleteMarkerBar(ChromingTrackDestination.PROGRESS_BAR);
-    }
+    this.deleteProgressBarMarkerBar(player);
     if (!markerTrack) return;
 
     const colorResolver = this.colorService.createColorResolver(crypto.randomUUID(), this.markerTrackService.HEX_COLORS);

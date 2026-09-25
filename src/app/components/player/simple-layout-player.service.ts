@@ -23,7 +23,6 @@ import {AbstractPlayerService} from './player.service.abstract';
 })
 export class SimpleLayoutPlayerService extends AbstractPlayerService {
   private _omakasePlayer: OmakasePlayer | undefined;
-  private _isMainMediaAudio: boolean | undefined;
 
   public onCreated$: BehaviorSubject<OmakasePlayer | undefined> = new BehaviorSubject<OmakasePlayer | undefined>(undefined);
   public thumbnailTrackUrl = signal<string | undefined>(undefined);
@@ -51,16 +50,7 @@ export class SimpleLayoutPlayerService extends AbstractPlayerService {
       if (playerEvent.type === PlayerEventType.PLAYER_MAIN_MEDIA_UNLOADING) {
         this.thumbnailTrack.set(undefined);
       }
-      if (playerEvent.type === PlayerEventType.PLAYER_MAIN_MEDIA_LOADED)
-        if (!playerEvent) {
-          this._isMainMediaAudio = undefined;
-          return;
-        }
-      // if (playerEvent.video.protocol === 'audio') {
-      //   this._isMainMediaAudio = true;
-      // } else {
-      //   this._isMainMediaAudio = false;
-      // }
+      this.trackMainMediaAudio(playerEvent);
     });
 
     this.onCreated$.next(this._omakasePlayer);
@@ -117,16 +107,19 @@ export class SimpleLayoutPlayerService extends AbstractPlayerService {
     this._isReloading = shouldReload;
     this.thumbnailTrack.set(undefined);
     this.thumbnailTrackUrl.set(undefined);
-    if (this._omakasePlayer) {
+    this._isMainMediaAudio = undefined;
+
+    const omakasePlayer = this._omakasePlayer;
+    this._omakasePlayer = undefined;
+    this.onCreated$.next(undefined);
+
+    if (omakasePlayer) {
       try {
-        this._omakasePlayer.destroy();
+        omakasePlayer.destroy();
       } catch (e) {
         console.error(e);
       }
     }
-
-    this._omakasePlayer = undefined;
-    this.onCreated$.next(this._omakasePlayer);
   }
 
   /**
@@ -134,9 +127,5 @@ export class SimpleLayoutPlayerService extends AbstractPlayerService {
    */
   get omakasePlayer() {
     return this._omakasePlayer;
-  }
-
-  get isMainMediaAudio() {
-    return this._isMainMediaAudio;
   }
 }

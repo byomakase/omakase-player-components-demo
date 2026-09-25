@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-import {AfterViewInit, Component, computed, OnDestroy, output, signal} from '@angular/core';
+import {AfterViewInit, Component, computed, OnDestroy, output, signal, ChangeDetectionStrategy} from '@angular/core';
 import {FormControl, ReactiveFormsModule} from '@angular/forms';
 import {EMPTY, filter, Subject, switchMap} from 'rxjs';
 import {PlayerService} from '../../../components/player/player.service';
@@ -30,6 +30,7 @@ import {SidecarAudio} from '../../../components/fly-outs/add-sidecar-audio-fly-o
 @Component({
   selector: 'app-audio-select',
   imports: [ReactiveFormsModule],
+  changeDetection: ChangeDetectionStrategy.Eager,
   template: `
     <select [formControl]="selectControl">
       @if (isAudioLoaded()) {

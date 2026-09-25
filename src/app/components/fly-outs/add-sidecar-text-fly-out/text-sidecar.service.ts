@@ -24,12 +24,12 @@ import {AbstractSidecarTextService} from './text-sidecar.service.abstract';
 import {LayoutService} from '../../layout-menu/layout.service';
 import {Layout} from '../../../model/session.model';
 import {SimpleLayoutSidecarTextService} from './simple-layout-text-sidecar.service';
-import {PlayerTextHandlerType} from '@byomakase/omakase-player';
+import {FileFormat, PlayerTextHandlerType} from '@byomakase/omakase-player';
 import {TextLayoutSidecarTextService} from './text-layout-text-sidecar.service';
 import {StampLayoutSidecarTextService} from './stamp-layout-text-sidecar.service';
 
 // export type SidecarText = Partial<SubtitlesVttTrack> & {src: string};
-export type SidecarText = {src: string; label?: string | undefined; engine: PlayerTextHandlerType; id?: string | undefined};
+export type SidecarText = {src: string; label?: string | undefined; engine: PlayerTextHandlerType; id?: string | undefined; slew?: number | undefined; probedFileFormat?: FileFormat | undefined};
 export type LoadedSidecarText = SidecarText & {id: string};
 
 @Injectable({
@@ -97,29 +97,12 @@ export class SidecarTextService extends AbstractSidecarTextService {
   }
 
   /**
-   * Reloads all sidecar texts. Since this method is usually called after Omakase player is recrated the argument
-   * should capture the player state before recreation
-   *
-   * @param {SidecarText[]} sidecarTexts
-   */
-  public reloadSidecarTexts(sidecarTexts: SidecarText[]) {
-    this.currentService.reloadSidecarTexts(sidecarTexts);
-  }
-
-  /**
    * Removes the sidecar text from OPCD session
    *
    * @param {SidecarText} sidecarText
    */
   public removeSidecarText(sidecarText: SidecarText) {
     this.currentService.removeSidecarText(sidecarText);
-  }
-
-  /**
-   * Remove all sidecar texts from OPCD session
-   */
-  public removeAllSidecarTexts() {
-    this.currentService.removeAllSidecarTexts();
   }
 
   public override reset(): void {

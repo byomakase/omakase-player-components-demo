@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-import {AfterViewInit, Component, computed, effect, ElementRef, inject, OnDestroy, OnInit, signal, ViewChild} from '@angular/core';
+import {AfterViewInit, Component, computed, effect, ElementRef, inject, OnDestroy, OnInit, signal, ViewChild, ChangeDetectionStrategy} from '@angular/core';
 import {PlayerComponent} from '../../player/player.component';
 import {PlayerService} from '../../player/player.service';
 import {EMPTY, filter, merge, Subject, switchMap, tap} from 'rxjs';
@@ -48,6 +48,7 @@ export interface AudioHandlerBundle {
   selector: 'app-audio-layout',
   imports: [PlayerComponent, VuMeterComponent, IconDirective],
   host: {'class': 'audio-layout'},
+  changeDetection: ChangeDetectionStrategy.Eager,
   template: `
     <div class="north-pole">
       <div class="left-side">
@@ -114,7 +115,7 @@ export class AudioLayoutComponent implements OnInit, OnDestroy, AfterViewInit {
         return;
       }
 
-      const maxVuMeters = Math.max(Math.floor(soundBoardWidth / 150) - 1, 0);
+      const maxVuMeters = Math.max(Math.floor(soundBoardWidth / 170) - 1, 0);
       if (maxVuMeters !== this.maxVuMeters()) {
         this.maxVuMeters.set(maxVuMeters);
         if (maxVuMeters >= this.audioHandlerBundles().length) {
@@ -219,12 +220,10 @@ export class AudioLayoutComponent implements OnInit, OnDestroy, AfterViewInit {
 
   private setUpMainAudioControl(omakasePlayer: OmakasePlayer): void {
     const activeMainTrack = omakasePlayer.player.audio.state.tracks[PlayerAudioType.MAIN].find((t) => t.active);
-    if (!activeMainTrack) {
-      return;
-    }
-
-    const mainHandler = omakasePlayer.player.audio.getHandler(PlayerAudioType.MAIN);
-    if (!mainHandler) {
+    const mainHandler = activeMainTrack ? omakasePlayer.player.audio.getHandler(PlayerAudioType.MAIN) : undefined;
+    if (!activeMainTrack || !mainHandler) {
+      // Main track deactivated: drop its VU meter.
+      this.removeMainAudioControl();
       return;
     }
 
@@ -238,6 +237,15 @@ export class AudioLayoutComponent implements OnInit, OnDestroy, AfterViewInit {
     this.initializeAudioRouter();
     mainHandler.createPeakProcessor().subscribe();
     this.audioHandlerBundles.update((prev) => [audioHandlerBundle, ...prev.filter((b) => b.type !== 'main')]);
+  }
+
+  private removeMainAudioControl(): void {
+    if (!this.audioHandlerBundles().some((b) => b.type === 'main')) {
+      return;
+    }
+    this.audioHandlerBundles.update((prev) => prev.filter((b) => b.type !== 'main'));
+    this.initialVuMeterIndex.update((prev) => Math.max(0, Math.min(prev, this.audioHandlerBundles().length - 1)));
+    this.initializeAudioRouter();
   }
 
   private setUpSidecarAudioControls(omakasePlayer: OmakasePlayer): void {
